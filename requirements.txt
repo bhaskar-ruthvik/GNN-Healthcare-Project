@@ -1,0 +1,13 @@
+# Pinned to the environment that produced every result (Python 3.12.12, macOS / Apple MPS).
+# numpy and pandas must match exactly: the prepared inputs are pickles written with these versions.
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+scikit-learn==1.9.1
+torch==2.14.0
+torch-geometric==2.8.0.post1
+lightgbm==4.7.0
+matplotlib==3.11.2
+networkx==3.6.1
+openpyxl==3.1.5
+lxml==6.1.3

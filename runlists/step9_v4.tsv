@@ -1,0 +1,6 @@
+# Step 9 (STEP9_PROTOCOL): v4 inputs, with and without patient gender and race (masking inside the model), two seeds.
+# name	inputs	extra flags
+v4_unmasked_s42	prepared_data/three_node_v4/model_inputs_PRIVATE.pkl	--seed 42
+v4_masked_s42	prepared_data/three_node_v4/model_inputs_PRIVATE.pkl	--seed 42 --mask-demographics
+v4_unmasked_s1	prepared_data/three_node_v4/model_inputs_PRIVATE.pkl	--seed 1
+v4_masked_s1	prepared_data/three_node_v4/model_inputs_PRIVATE.pkl	--seed 1 --mask-demographics

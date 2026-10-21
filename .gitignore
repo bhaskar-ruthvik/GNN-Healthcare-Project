@@ -1,0 +1,23 @@
+# ---- data and outputs: NEVER commit (private claims data and anything derived from it) ----
+data/
+reference_data/
+prepared_data/
+runs/
+snapshots/
+deliverables/
+outputs/
+*PRIVATE*
+*.pkl
+*.npz
+*.pt
+*.csv.gz
+*.xlsx
+*.parquet
+# ---- environments and caches ----
+env/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+.DS_Store

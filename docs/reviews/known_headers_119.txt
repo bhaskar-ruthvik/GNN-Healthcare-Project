@@ -1,0 +1,119 @@
+mso_membership_id
+primary_care_provider_npi
+rendering_provider_npi
+service_from_date
+principal_diagnosis_code
+procedure_code
+total_time
+Age
+Gender
+IPA_CARRIER
+IPA_CARRIER_PRODUCT
+primary_care_provider_effective_date
+provider_specialty_code
+NumRatings
+Rating_RP
+Number_of_ratings_RP
+Reviews_avg_rating_RP
+Credential_RP
+Zip_1_RP
+Zip_2_RP
+Zip_3_RP
+Reviews-avg_rating_PCP
+Credential_PCP
+Zip_1_PCP_New
+Zip_2_PCP_New
+Zip_3_PCP_New
+Rndrng_Prvdr_Crdntls_pcp
+Rndrng_Prvdr_Gndr_pcp
+Rndrng_Prvdr_State_FIPS_pcp
+Provider_Zip5Texas_pcp
+Rndrng_Prvdr_RUCA_pcp
+Tot_Benes_pcp
+Tot_Mdcr_Pymt_Amt_pcp
+Bene_Age_LT_65_Cnt_pcp
+Bene_Age_65_74_Cnt_pcp
+Bene_Age_75_84_Cnt_pcp
+Bene_Age_GT_84_Cnt_pcp
+Bene_Feml_Cnt_pcp
+Bene_Male_Cnt_pcp
+Bene_Avg_Risk_Scre_pcp
+Rndrng_Prvdr_Crdntls
+Rndrng_Prvdr_Gndr
+Rndrng_Prvdr_State_FIPS
+Provider_Zip5Texas
+Rndrng_Prvdr_RUCA
+Tot_Benes
+Tot_Srvcs
+Tot_Mdcr_Pymt_Amt
+Med_Tot_Srvcs
+Bene_Avg_Age
+Bene_Age_LT_65_Cnt
+Bene_Age_65_74_Cnt
+Bene_Age_75_84_Cnt
+Bene_Age_GT_84_Cnt
+Bene_Feml_Cnt
+Bene_Male_Cnt
+Bene_Avg_Risk_Scre
+practice size_pcp
+clinician specialty_pcp
+years in medicare_pcp
+participation type_pcp
+medicare patients_pcp
+rural clinician_pcp
+hpsa clinician_pcp
+final MIPS score_pcp
+practice size
+clinician specialty
+years in medicare
+participation type
+medicare patients
+rural clinician
+hpsa clinician
+final MIPS score
+mso_race
+pcp_race
+ren_race
+pcp_Med_sch
+pcp_Grd_yr
+pcp_pri_spec
+pcp_hosp_afl_1
+pcp_hosp_afl_2
+pcp_hosp_afl_3
+pcp_hosp_afl_4
+pcp_hosp_afl_5
+rnd_Med_sch
+rnd_Grd_yr
+rnd_pri_spec
+rnd_hosp_afl_1
+rnd_hosp_afl_2
+rnd_hosp_afl_3
+rnd_hosp_afl_4
+rnd_hosp_afl_5
+DOC-DOC-LINK
+D-patient_age_band
+D-rnd_career_band
+D-pcp_career_band
+D-service_from_month_year
+D_B_Aco
+D_B_pcp_rnd_Gender
+D_B_pat_rnd_Gender
+D_B_pcp_rnd_Exp
+D_B_pcp_rnd_Race
+D_B_pat_rnd_Race
+D_pcp_Zip
+D_rnd_Zip
+D_pcp_rnd_dist
+D_pat_rnd_dist
+D_B_pcp_rnd_proximity
+D_B_pat_rnd_proximity
+D_pcp_Med_sch_zip
+D_rnd_Med_sch_zip
+D_pcp_rnd_med_sch_dist
+D_ICD_9_DiseaseCategory
+D_ICD_9_Severity
+D_ICD_10_DiseaseCategory
+D_ICD_10_Severity
+D_Disease_Code_Category
+D_Disease_Code_Severity
+D_CCI_weight

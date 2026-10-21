@@ -1,0 +1,20 @@
+# STEP11 §11.4(c) cumulative snapshots (frozen plan): final-model configuration on each snapshot's own inputs; validation = the snapshot's 3-month holdout.
+# GNN: S16/S17/S19 seeds 42,1; S18 seeds 42,1 + dup of 42 (noise band). No-graph twin: every snapshot, seeds 42,1. Smallest first.
+# name	inputs	extra flags
+snap_S16_gnn_s42	snapshots/S16/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+snap_S16_gnn_s1	snapshots/S16/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1
+snap_S16_nograph_s42	snapshots/S16/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph
+snap_S16_nograph_s1	snapshots/S16/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph
+snap_S17_gnn_s42	snapshots/S17/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+snap_S17_gnn_s1	snapshots/S17/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1
+snap_S17_nograph_s42	snapshots/S17/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph
+snap_S17_nograph_s1	snapshots/S17/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph
+snap_S18_gnn_s42	snapshots/S18/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+snap_S18_gnn_s1	snapshots/S18/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1
+snap_S18_gnn_s42_dup	snapshots/S18/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+snap_S18_nograph_s42	snapshots/S18/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph
+snap_S18_nograph_s1	snapshots/S18/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph
+snap_S19_gnn_s42	snapshots/S19/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+snap_S19_gnn_s1	snapshots/S19/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1
+snap_S19_nograph_s42	snapshots/S19/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph
+snap_S19_nograph_s1	snapshots/S19/prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph

@@ -1,0 +1,11 @@
+# STEP12d B: GNN fold models (final-model flags; message passing on), K = 3 time folds × seeds 42 / 1 / 7 — out-of-fold GNN scores for stacking
+# name	inputs	extra flags
+s12d_fold0_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 0 --n-folds 3
+s12d_fold1_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 1 --n-folds 3
+s12d_fold2_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 2 --n-folds 3
+s12d_fold0_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 0 --n-folds 3
+s12d_fold1_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 1 --n-folds 3
+s12d_fold2_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 2 --n-folds 3
+s12d_fold0_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 0 --n-folds 3
+s12d_fold1_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 1 --n-folds 3
+s12d_fold2_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 2 --n-folds 3

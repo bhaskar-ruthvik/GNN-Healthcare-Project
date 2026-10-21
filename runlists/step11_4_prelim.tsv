@@ -1,0 +1,5 @@
+# STEP11 §11.4 PRELIMINARY data-size runs (user, 2026-10-08): final-model configuration trained only on queries before 2017-01-01 (2015–2016).
+# Current three_node_v5 inputs (encoders fitted on 2015–2017; disclosed). Validation/selection unchanged.
+# name	inputs	extra flags
+v5_unmasked_upto2017_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --train-end 2017-01-01
+v5_nograph_upto2017_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph --train-end 2017-01-01

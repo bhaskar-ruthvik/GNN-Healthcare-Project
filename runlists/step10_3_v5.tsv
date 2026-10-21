@@ -1,0 +1,6 @@
+# Step 10.3 (STEP10_PROTOCOL §2.5 item 6 as amended by A3): v5 inputs, all trained on Grace (one device).
+# name	inputs	extra flags
+v5_unmasked_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+v5_unmasked_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1
+v5_unmasked_s42_dup	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42
+v5_masked_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --mask-demographics

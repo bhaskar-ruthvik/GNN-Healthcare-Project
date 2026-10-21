@@ -1,0 +1,4 @@
+# Step 11.1 (STEP11_PLAN, frozen 2026-10-07): three-node no-graph control, final-model configuration otherwise (v5, unmasked, uniform negatives, first-time MRR selection).
+# name	inputs	extra flags
+v5_nograph_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph
+v5_nograph_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph

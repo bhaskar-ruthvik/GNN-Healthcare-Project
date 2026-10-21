@@ -1,0 +1,5 @@
+# STEP12a Amendment A1 (post-verdict, secondary; 2026-10-13): 3 extra seeds of G for the seed-resampling bootstrap.
+# name	inputs	extra flags
+s12_gate_s2	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 2 --no-graph --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history
+s12_gate_s3	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 3 --no-graph --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history
+s12_gate_s4	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 4 --no-graph --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history

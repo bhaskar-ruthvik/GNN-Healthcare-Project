@@ -1,0 +1,17 @@
+# STEP12d local run order (2026-10-14): C dual ×3, B folds ×9, A offset ×3 (offset last: needs runs/analysis/step12d/table_oof_s*.npz)
+# name	inputs	extra flags
+s12d_dual_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --tab-tower
+s12d_dual_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --tab-tower
+s12d_dual_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --tab-tower
+s12d_fold0_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 0 --n-folds 3
+s12d_fold1_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 1 --n-folds 3
+s12d_fold2_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --exclude-fold 2 --n-folds 3
+s12d_fold0_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 0 --n-folds 3
+s12d_fold1_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 1 --n-folds 3
+s12d_fold2_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --exclude-fold 2 --n-folds 3
+s12d_fold0_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 0 --n-folds 3
+s12d_fold1_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 1 --n-folds 3
+s12d_fold2_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --exclude-fold 2 --n-folds 3
+s12d_offset_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --table-offset runs/analysis/step12d/table_oof_s42.npz --offset-table-run lgbm_tabular_s42
+s12d_offset_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --table-offset runs/analysis/step12d/table_oof_s1.npz --offset-table-run lgbm_tabular_s1
+s12d_offset_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --table-offset runs/analysis/step12d/table_oof_s7.npz --offset-table-run s12_lgbm_tabular_lambdarank_L127_M50_R1000_s7

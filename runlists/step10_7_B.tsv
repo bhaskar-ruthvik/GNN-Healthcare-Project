@@ -1,0 +1,6 @@
+# Step 10.7 Option B (STEP10_PROTOCOL A10): load-aware retraining, two seeds per variant.
+# name	inputs	extra flags
+v6_load_s42	prepared_data/three_node_v6/model_inputs_PRIVATE.pkl	--seed 42
+v6_load_s1	prepared_data/three_node_v6/model_inputs_PRIVATE.pkl	--seed 1
+v5_posw05_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --pos-weight-alpha 0.5
+v5_posw05_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --pos-weight-alpha 0.5

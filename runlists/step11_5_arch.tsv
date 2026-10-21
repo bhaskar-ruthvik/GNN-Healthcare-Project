@@ -1,0 +1,9 @@
+# STEP11 B5 (frozen, revision 1): architecture changes against the final model (v5 unmasked, uniform negatives, final settings). Two seeds each.
+# C2 first (D1 hint: specialty choice), then C1 grid. C5b / C3 only per the frozen order.
+# name	inputs	extra flags
+c2_skip_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --scorer-skip
+c2_skip_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --scorer-skip
+c1_hd03_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --history-dropout 0.3
+c1_hd03_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --history-dropout 0.3
+c1_hd06_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --history-dropout 0.6
+c1_hd06_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --history-dropout 0.6

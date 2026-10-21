@@ -1,0 +1,103 @@
+{
+  "source_sheet": "Final_Base_Data_09_30_2025",
+  "header_names": {
+    "E": "principal_diagnosis_code",
+    "CO": "DOC-DOC-LINK",
+    "DM": "D_Disease_Code_Category",
+    "DN": "D_Disease_Code_Severity",
+    "DO": "D_CCI_weight"
+  },
+  "elapsed_seconds": 41.9,
+  "groups": {
+    "0": {
+      "rows": 334470,
+      "category_counts": {
+        "Diseases of the musculoskeletal system and connective tissue": 45664,
+        "Diseases of the digestive system": 15664,
+        "Certain infectious and parasitic diseases": 3257,
+        "Diseases of the skin and subcutaneous tissue": 20435,
+        "Neoplasms": 15223,
+        "Injury, poisoning and other external consequences": 21925,
+        "Factors influencing health status & contact with health services": 22359,
+        "Diseases of the ear and mastoid process": 7586,
+        "Symptoms, signs and abnormal clinical/lab findings (not elsewhere class.)": 47010,
+        "Diseases of the circulatory system": 29090,
+        "Symptoms, signs & ill-defined conditions": 7112,
+        "Diseases of the nervous system": 12406,
+        "External causes of injury": 16896,
+        "Diseases of the genitourinary system": 14955,
+        "Neoplasms / Blood & immune disorders": 15572,
+        "Diseases of the respiratory system": 16516,
+        "Diseases of the eye and adnexa": 16871,
+        "Diseases of the skin & subcutaneous tissue": 342,
+        "Supplemental classification": 852,
+        "Endocrine, nutritional & metabolic diseases, immunity disorders": 968,
+        "Mental and behavioural disorders": 892,
+        "Pregnancy, childbirth and the puerperium": 1222,
+        "Congenital malformations, deformations and chromosomal abnormalities": 538,
+        "Injury & poisoning": 188,
+        "Diseases of the nervous system & sense organs": 328,
+        "Diseases of the musculoskeletal system & connective tissue": 456,
+        "": 111,
+        "Mental disorders": 26,
+        "Infectious and parasitic diseases": 3,
+        "Complications of pregnancy, childbirth & the puerperium": 3
+      },
+      "severity_counts": {
+        "Moderate": 121739,
+        "Simple": 139463,
+        "Complex": 73157,
+        "": 111
+      },
+      "distinct_raw_diagnoses": 1928,
+      "diagnoses_with_multiple_raw_categories": 0
+    },
+    "1": {
+      "rows": 273711,
+      "category_counts": {
+        "Diseases of the circulatory system": 23748,
+        "Supplemental classification": 189,
+        "Symptoms, signs & ill-defined conditions": 6234,
+        "Diseases of the digestive system": 9835,
+        "Diseases of the respiratory system": 13507,
+        "Diseases of the musculoskeletal system and connective tissue": 41647,
+        "Symptoms, signs and abnormal clinical/lab findings (not elsewhere class.)": 33660,
+        "Neoplasms": 17250,
+        "Injury, poisoning and other external consequences": 11862,
+        "Diseases of the skin and subcutaneous tissue": 14302,
+        "Diseases of the eye and adnexa": 12805,
+        "Diseases of the nervous system": 9189,
+        "Certain infectious and parasitic diseases": 3145,
+        "Factors influencing health status & contact with health services": 26412,
+        "Diseases of the genitourinary system": 15071,
+        "Neoplasms / Blood & immune disorders": 11429,
+        "Diseases of the ear and mastoid process": 2264,
+        "Diseases of the musculoskeletal system & connective tissue": 540,
+        "External causes of injury": 16939,
+        "Mental and behavioural disorders": 728,
+        "Pregnancy, childbirth and the puerperium": 1645,
+        "": 132,
+        "Diseases of the skin & subcutaneous tissue": 197,
+        "Infectious and parasitic diseases": 24,
+        "Congenital malformations, deformations and chromosomal abnormalities": 239,
+        "Injury & poisoning": 123,
+        "Diseases of the nervous system & sense organs": 356,
+        "Endocrine, nutritional & metabolic diseases, immunity disorders": 153,
+        "Mental disorders": 17,
+        "Diseases of the blood & blood-forming organs": 39,
+        "External causes of morbidity and mortality": 16,
+        "Certain conditions originating in the perinatal period": 9,
+        "Complications of pregnancy, childbirth & the puerperium": 3,
+        "Congenital anomalies": 2
+      },
+      "severity_counts": {
+        "Complex": 62261,
+        "Simple": 113018,
+        "Moderate": 98300,
+        "": 132
+      },
+      "distinct_raw_diagnoses": 8651,
+      "diagnoses_with_multiple_raw_categories": 0
+    }
+  }
+}
