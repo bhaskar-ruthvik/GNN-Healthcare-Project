@@ -20,6 +20,11 @@ Feature sets
             distance, and shared hospital affiliation (a comparison of two providers' listed affiliations, not history).
             Excluded: the patient-history block, predecessor gap, PCP–specialist referral history, patient–specialist
             prior, insurer history.
+  STEP13 (STEP13_GRAPH_VALUE_PLAN.md §6; aggregates in flat13.py):
+  flat_rf     : tabular + receptive-field-matched aggregates (A1, A2, B1, matching terms; no A3)       — Flat-RF / MLP-RF
+  full_nohist : tabular + graph counts without g_coref_* + flat_rf aggregates + A3                     — Info-table-nohist
+  full        : primary (all explicit history) + all graph counts + the full_nohist aggregates         — Info-table / MLP-info
+  insmatch    : full_nohist + the query insurer's share of the candidate's past encounters             — Ins-match control
 """
 from __future__ import annotations
 
@@ -185,6 +190,10 @@ class FlatGraph:
 
 
 # ------------------------------------------------------------------------------------------------------------------
+STEP13_SETS = ("flat_rf", "full_nohist", "full", "insmatch")
+NO_EXPLICIT_HISTORY = ("tabular", "flat", "flat_rf", "full_nohist", "insmatch")   # explicit pair / patient history dropped
+
+
 class FeatureBuilder:
     """Rows for (query encounter, candidate specialist) pairs; call prepare(cutoff, batch_enc) per bucket first."""
 
@@ -192,7 +201,7 @@ class FeatureBuilder:
         """STEP12a options (defaults = unchanged behaviour): volume "shares" (B2: beneficiary/service counts constant, panel counts
         as shares; referral_gnn/volume.py); no_pcp drops the PCP snapshot columns (H1 PCP-attribute check); ablate "no_volume" /
         "no_volume_plus" applies the B1 / B1+ inference neutralisation to the specialist snapshot (scoring only)."""
-        assert feature_set in ("primary", "graph", "tabular", "flat") and volume in ("keep", "shares", "strict") and ablate in (None, "no_volume", "no_volume_plus")
+        assert feature_set in ("primary", "graph", "tabular", "flat") + STEP13_SETS and volume in ("keep", "shares", "strict") and ablate in (None, "no_volume", "no_volume_plus")
         self.mi, self.feature_set = mi, feature_set
         self.volume, self.no_pcp, self.ablate = volume, bool(no_pcp), ablate
         self.vstats = None
@@ -207,8 +216,12 @@ class FeatureBuilder:
             self.vstats = stats(mi)
         self.static = mi._encounter_static()                                  # (n_enc, 76): context, severity, history, dx flags
         self.n_cat = int(mi.enc_dx.max()) + 1
-        self.stats = GraphStats(mi) if feature_set == "graph" else None
+        self.stats = GraphStats(mi) if feature_set in ("graph", "full_nohist", "full", "insmatch") else None
         self.flat = FlatGraph(mi) if feature_set == "flat" else None          # STEP12b H4: pure tabular + flattened-graph means
+        self.flat13 = None
+        if feature_set in STEP13_SETS:
+            from .flat13 import Flat13
+            self.flat13 = Flat13(mi, a3=feature_set != "flat_rf", insmatch=feature_set == "insmatch")
         d = mi.dims()
         self.enc_cat_sizes, self.spec_cat_sizes, self.pcp_cat_sizes = d["encounter_cat_sizes"], d["specialist_cat_sizes"], d["pcp_cat_sizes"]
         self.names: List[str] = []
@@ -221,24 +234,29 @@ class FeatureBuilder:
         self.names += [f"pair_{n}" for n in mi.pair_feature_names]
         if self.stats is not None: self.names += GraphStats.NAMES
         if self.flat is not None: self.names += self.flat.names(snap["pcp_num"].shape[1])
+        if self.flat13 is not None: self.names += self.flat13.names(snap["pcp_num"].shape[1])
         if self.extra_npz: self.names += ["gnn_score"]
         self.keep = None
         drops = []
-        if feature_set in ("tabular", "flat"):
+        if feature_set in NO_EXPLICIT_HISTORY:
             hist = set(range(*mi.encounter_blocks["patient_history"]))
             pair_keep = {"pair_distance_scaled", "pair_distance_missing", "pair_patient_distance_scaled", "pair_patient_distance_missing",
                          "pair_shared_affiliation", "pair_affiliation_unknown"}
             drops.append(lambda nm: ((nm.startswith("enc_static_") and int(nm.rsplit("_", 1)[1]) in hist) or nm in ("gap_log", "gap_none")
                                      or (nm.startswith("pair_") and nm not in pair_keep)))
+        if feature_set in ("full_nohist", "insmatch"):                      # STEP13: patient-derived co-referral counts are patient history
+            drops.append(lambda nm: nm.startswith("g_coref_"))
         if self.no_pcp:
             drops.append(lambda nm: nm.startswith(("pcp_num_", "pcp_cat_")))
         if drops:
             self.keep = np.array([not any(d(nm) for d in drops) for nm in self.names])
-            if feature_set in ("tabular", "flat"): assert sum(nm.startswith("pair_") for nm in np.array(self.names)[self.keep]) == len(pair_keep)
+            if feature_set in NO_EXPLICIT_HISTORY: assert sum(nm.startswith("pair_") for nm in np.array(self.names)[self.keep]) == len(pair_keep)
             self.names = [nm for nm, k in zip(self.names, self.keep) if k]
-        self.cat_idx = []
+        self.cat_idx, self.cat_sizes = [], []                                   # cat_sizes: levels per categorical column (MLP one-hots)
+        size_of = {"enc_cat_": self.enc_cat_sizes, "spec_cat_": self.spec_cat_sizes, "pcp_cat_": self.pcp_cat_sizes}
         for nm_i, nm in enumerate(self.names):
-            if nm.startswith(("enc_cat_", "spec_cat_", "pcp_cat_")): self.cat_idx.append(nm_i)
+            if nm.startswith(("enc_cat_", "spec_cat_", "pcp_cat_")):
+                self.cat_idx.append(nm_i); pre, j = nm.rsplit("_", 1); self.cat_sizes.append(int(size_of[pre + "_"][int(j)]))
         self.cutoff = None
 
     def prepare(self, cutoff: int, batch_enc: np.ndarray):
@@ -254,6 +272,7 @@ class FeatureBuilder:
         self.gaps = gaps
         if self.stats is not None: self.stats.advance(self.cutoff)
         if self.flat is not None: self.flat.advance(self.cutoff, self.snap)
+        if self.flat13 is not None: self.flat13.advance(self.cutoff)
 
     def rows(self, q: int, cand: np.ndarray, pair: Optional[np.ndarray] = None, extra: Optional[np.ndarray] = None) -> np.ndarray:
         mi = self.mi; cand = np.asarray(cand, np.int64); n = len(cand); q = int(q)
@@ -267,6 +286,7 @@ class FeatureBuilder:
         parts = [np.broadcast_to(enc, (n, len(enc))), np.broadcast_to(dx, (n, len(dx))), spec, np.broadcast_to(pcp, (n, len(pcp))), pair]
         if self.stats is not None: parts.append(self.stats.features(q, cand))
         if self.flat is not None: parts.append(self.flat.features(q, cand, self.snap))
+        if self.flat13 is not None: parts.append(self.flat13.features(q, cand, self.snap))
         if self.extra_npz:
             parts.append(np.asarray(extra if extra is not None else self.extra_lookup.get(q, cand), np.float32)[:, None])
         X = np.concatenate(parts, axis=1).astype(np.float32)

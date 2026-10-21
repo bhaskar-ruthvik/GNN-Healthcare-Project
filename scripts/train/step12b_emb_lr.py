@@ -59,7 +59,7 @@ run_dir = os.path.join(root, "runs", time.strftime("%Y%m%dT%H%M%S") + f"_{arm}_s
 pickle.dump(lr, open(os.path.join(run_dir, "model.pkl"), "wb"))
 man = {"kind": "emb_lr", "arm": arm, "step": "12b", "protocol": "STEP12B_HYBRID_PLAN.md", "seed": seed, "gnn_run": os.path.relpath(args.gnn_run, root),
        "use_emb": not args.no_emb, "emb_mode": args.emb_mode, "params": {"C": row["C"]}, "feature_names": feats.names, "inputs_path": inputs_path, "inputs_sha256": sha256_file(inputs_path),
-       "code_sha256": code_hash(os.path.join(root, "referral_gnn")), "train_config": {"graph_bucket": "week"}, "selection_metric": "firstobs_mrr_eligible",
+       "code_sha256": code_hash(str(code_file("referral_gnn"))), "train_config": {"graph_bucket": "week"}, "selection_metric": "firstobs_mrr_eligible",
        "tuning": tuning, "standardised_coefficients_exploratory": {k: v for k, v in coef.items() if not k.startswith("emb_")},
        "smoke_max_queries": args.max_queries, "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
 json.dump(man, open(os.path.join(run_dir, "run_manifest.json"), "w"), indent=1)

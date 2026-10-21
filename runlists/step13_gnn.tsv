@@ -1,0 +1,13 @@
+# STEP13 phase 1 (Implementation/STEP13_GRAPH_VALUE_PLAN.md, frozen 2026-10-21): the 10 new GNN-trainer runs. Final-model flags
+# come from scripts/tools/train_runlist.sh. Explicit history removed = the STEP12a gate ablations. Flags mirror referral_gnn/step13.py CELLS.
+# name	inputs	extra flags
+s13_graph_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --arm model_s13_graph
+s13_ngp_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph --pcp-in-scorer --arm model_s13_ngp
+s13_ngp_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph --pcp-in-scorer --arm model_s13_ngp
+s13_ngp_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --no-graph --pcp-in-scorer --arm model_s13_ngp
+s13_gnn_nohist_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_gnn_nohist
+s13_gnn_nohist_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_gnn_nohist
+s13_gnn_nohist_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_gnn_nohist
+s13_ngp_nohist_s42	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 42 --no-graph --pcp-in-scorer --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_ngp_nohist
+s13_ngp_nohist_s1	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 1 --no-graph --pcp-in-scorer --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_ngp_nohist
+s13_ngp_nohist_s7	prepared_data/three_node_v5/model_inputs_PRIVATE.pkl	--seed 7 --no-graph --pcp-in-scorer --ablation no_patient_history --ablation no_predecessor_gap --ablation no_history_features --ablation no_patient_specialist_prior --ablation no_insurer_history --arm model_s13_ngp_nohist

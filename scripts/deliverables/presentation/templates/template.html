@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral Recommender — This Week</title>
+<style>
+:root{--ink:#0b0b0b;--ink2:#52514e;--muted:#8a8984;--grid:#e6e6e3;--bg:#ffffff;--panel:#f6f6f4;--blue:#2a78d6;--orange:#eb6834;--aqua:#1baf7a;--yellow:#eda100;--violet:#4a3aa7;--red:#e34948}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#ecebe8;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink)}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.deck{position:relative;width:1280px;height:720px;transform-origin:center center}
+.slide{position:absolute;inset:0;background:var(--bg);padding:48px 64px 56px;display:none;flex-direction:column;box-shadow:0 2px 18px rgba(0,0,0,.08)}
+.slide.active{display:flex}
+h1{font-weight:500;font-size:34px;margin:0 0 6px;letter-spacing:-.2px}
+h1.big{font-size:46px;margin-top:150px}
+.sub{color:var(--ink2);font-size:18px;margin:0 0 22px}
+p,li{font-size:19px;line-height:1.45}
+ul{margin:6px 0 0 0;padding-left:22px} li{margin:6px 0}
+.row{display:flex;gap:28px;flex:1;min-height:0}
+.col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:10px}
+.card{background:var(--panel);border-radius:10px;padding:18px 18px 16px}
+.card .k{font-size:15px;color:var(--ink2);margin-bottom:6px}
+.card .v{font-size:30px;font-weight:500}
+.card .d{font-size:15px;color:var(--ink2);margin-top:6px;line-height:1.35}
+.note{font-size:13px;color:var(--ink2);margin-top:auto;padding-top:8px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.btn{border:1px solid #cfcdc7;background:#fff;color:var(--ink);border-radius:18px;padding:6px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+.btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chart{flex:1;min-height:0;position:relative}
+svg text{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+#tip{position:fixed;pointer-events:none;background:#fff;border:1px solid #d9d7d1;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.4;color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.12);display:none;max-width:320px;z-index:10}
+#tip b{font-weight:600}
+.nav{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#fff;border-radius:20px;padding:6px 12px;box-shadow:0 2px 10px rgba(0,0,0,.1);font-size:13px;color:var(--ink2);z-index:5}
+.nav button{border:none;background:none;font-size:18px;cursor:pointer;color:var(--ink);padding:0 6px}
+.dots{display:flex;gap:5px}.dots span{width:8px;height:8px;border-radius:50%;background:#d4d2cc;cursor:pointer}.dots span.on{background:var(--ink)}
+table{border-collapse:collapse;font-size:16px;width:100%}
+th,td{padding:7px 10px;border-bottom:1px solid var(--grid);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--ink2);font-size:14px}
+.big-num{font-size:52px;font-weight:500;line-height:1}
+.pill{display:inline-block;background:var(--panel);border-radius:12px;padding:2px 10px;font-size:13px;color:var(--ink2);margin-left:6px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink2);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tabimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.tabimg img{max-width:100%;max-height:100%;object-fit:contain}
+.q{background:var(--panel);border-radius:10px;padding:14px 18px;margin:8px 0;font-size:18px;line-height:1.4}
+.q b{font-weight:500}
+
+/* ---- colour system: one colour per measure, used everywhere ---- */
+:root{--q:#2a78d6;--fit:#4a3aa7;--travel:#1baf7a;--load:#eb6834;--q-t:#e8f1fc;--fit-t:#ecebf8;--travel-t:#e5f6ef;--load-t:#fdeee7;--neutral-t:#f3f2ef}
+.slide{border-top:8px solid var(--accent,#0b0b0b)}
+.slide[data-accent=q]{--accent:var(--q);--tint:var(--q-t)} .slide[data-accent=fit]{--accent:var(--fit);--tint:var(--fit-t)}
+.slide[data-accent=travel]{--accent:var(--travel);--tint:var(--travel-t)} .slide[data-accent=load]{--accent:var(--load);--tint:var(--load-t)}
+.slide[data-accent=mix]{--accent:linear-gradient(90deg,var(--q),var(--fit),var(--travel),var(--load));border-top:none}
+.slide[data-accent=mix]::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:linear-gradient(90deg,var(--q) 0 25%,var(--fit) 25% 50%,var(--travel) 50% 75%,var(--load) 75%)}
+.tag{display:inline-block;font-size:12px;letter-spacing:.6px;text-transform:uppercase;font-weight:600;color:var(--accent,#52514e);background:var(--tint,#f3f2ef);border-radius:12px;padding:3px 10px;margin-bottom:10px;align-self:flex-start}
+.slide[data-accent=mix] .tag{color:#0b0b0b;background:#f3f2ef}
+.card{border-top:5px solid var(--c,#cfcdc7);background:var(--ct,#f6f6f4)}
+.card .v{color:var(--c,#0b0b0b)}
+.card.qual{--c:var(--q);--ct:var(--q-t)} .card.fit{--c:var(--fit);--ct:var(--fit-t)} .card.travel{--c:var(--travel);--ct:var(--travel-t)} .card.load{--c:var(--load);--ct:var(--load-t)}
+.panel{background:var(--tint,#f6f6f4);border-radius:12px;padding:16px 20px}
+.btn.on{background:var(--accent,#0b0b0b);border-color:transparent}
+.slide[data-accent=mix] .btn.on{background:#0b0b0b}
+.q{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid #e6e4df;border-left:6px solid var(--qc)}
+.q .n{flex:0 0 30px;height:30px;border-radius:50%;background:var(--qc);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;font-size:15px}
+.hi{font-weight:600}.hi.qual{color:var(--q)}.hi.fit{color:var(--fit)}.hi.travel{color:var(--travel)}.hi.load{color:var(--load)}
+/* title slide */
+.slide.title{background:radial-gradient(circle at 85% 20%,rgba(255,255,255,.12) 0 18%,transparent 19%),radial-gradient(circle at 75% 70%,rgba(255,255,255,.08) 0 12%,transparent 13%),linear-gradient(135deg,#14213d 0%,#1d4f91 55%,#2a78d6 100%);color:#fff;border-top:none}
+.slide.title .sub{color:rgba(255,255,255,.85)} .slide.title .note{color:rgba(255,255,255,.7)}
+.slide.title .chips{display:flex;gap:10px;margin-top:22px}
+.slide.title .chips span{border-radius:16px;padding:6px 14px;font-size:15px;font-weight:500;color:#fff}
+
+/* ---- Material You–style overrides: flat tonal surfaces, large radii, no gradients or shadows ---- */
+html,body{background:#eef0f4}
+.slide{border-top:none!important;border-radius:28px;box-shadow:none;background:#fdfcff;padding:44px 60px 56px}
+.slide[data-accent=mix]::before{display:none}
+.tag{border-radius:8px;padding:5px 12px;font-size:12px;letter-spacing:.4px;text-transform:none;font-weight:600;background:var(--tint,#e9e8ef);color:var(--accent,#44464f)}
+.slide[data-accent=mix] .tag{background:#e9e8ef;color:#44464f}
+.card{border-top:none;border-radius:20px;background:var(--ct,#f2f1f6);padding:20px}
+.card .k{font-weight:500;color:var(--c,#44464f)}
+.panel{border-radius:20px}
+.btn{border:none;background:#e9e8ef;color:#1b1b1f;border-radius:20px;padding:8px 16px;font-weight:500}
+.btn.on{background:var(--tint,#d9e2ff);color:var(--accent,#1b1b1f)}
+.slide[data-accent=mix] .btn.on{background:#d9e2ff;color:#1b1b1f}
+.q{border:none;border-left:none;background:#f2f1f6;border-radius:20px;padding:16px 20px}
+.nav{background:#e3e2ea;box-shadow:none;border-radius:24px;padding:6px 14px}
+.dots span{background:#c4c6d0}.dots span.on{background:#1b1b1f;width:20px;border-radius:4px}
+#tip{border:none;border-radius:12px;background:#2f3036;color:#f1f0f7;box-shadow:none}
+#tip b{color:#fff}
+table th{color:#44464f}
+th,td{border-bottom:1px solid #e3e2ea}
+/* title: one flat tonal surface */
+.slide.title{background:#dbe5fb!important;color:#0f1d38}
+.slide.title .sub{color:#2f3b55}.slide.title .note{color:#4a5672}
+.slide.title .chips span{border-radius:10px;padding:8px 16px;font-size:15px}
+.slide.title .chips span:nth-child(1){background:#2a78d6!important}
+
+.explore{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ex{display:flex;gap:12px;align-items:flex-start;background:#f2f1f6;border-radius:20px;padding:14px 16px}
+.ex .exn{flex:0 0 28px;height:28px;border-radius:50%;background:#1b1b1f;color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.ex b{display:block;font-weight:500;font-size:17px;line-height:1.3}.ex span:not(.exn){display:block;font-size:14px;color:#44464f;margin-top:3px}
+.lenses{display:flex;gap:10px;flex-wrap:wrap}.lens{background:var(--ct);border-radius:12px;padding:8px 12px;font-size:14px;color:#44464f}.lens b{color:var(--c);font-weight:600;margin-right:6px}
+</style>
+</head>
+<body>
+<div id="stage"><div class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide title">
+  <h1 class="big" style="margin-top:120px">Referral recommender: what we did this week</h1>
+  <p class="sub" style="font-size:22px">Exploring the referral network with the graph model: quality, travel, load and fairness</p>
+  <div class="chips"><span style="background:var(--q)">Quality</span><span style="background:var(--fit)">Fit</span><span style="background:var(--travel)">Travel</span><span style="background:var(--load)">Load</span></div>
+  <p class="sub" style="margin-top:22px">Bhaskar Ruthvik Bikkina · 2 October 2026</p>
+  <p class="note">Use ← → or the buttons below. Charts are interactive: hover for details, click the toggles.</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">This week</span>
+  <h1>What we explored this week</h1>
+  <p class="sub">Using the graph model as a lens on the referral network: what it has learned, and what changes when we steer its recommendations</p>
+  <div class="explore">
+    <div class="ex"><span class="exn">1</span><div><b>What do today’s referrals look like?</b><span>Quality, load and travel in the data itself</span></div></div>
+    <div class="ex"><span class="exn">2</span><div><b>What drives the model’s choices?</b><span>Which inputs it relies on, input by input</span></div></div>
+    <div class="ex"><span class="exn">3</span><div><b>What happens when we steer it toward quality?</b><span>How much MIPS we gain and what it costs</span></div></div>
+    <div class="ex"><span class="exn">4</span><div><b>How far should patients travel?</b><span>Distance limits and who they affect</span></div></div>
+    <div class="ex"><span class="exn">5</span><div><b>Is it even across patient groups?</b><span>Gender, race, age, insurer, area</span></div></div>
+    <div class="ex"><span class="exn">6</span><div><b>Can it spread the load?</b><span>Re-ranking and retraining to relieve busy specialists</span></div></div>
+  </div>
+  <p style="margin:18px 0 8px;font-size:16px;color:#44464f">Every recommendation is read through four lenses</p>
+  <div class="lenses"><span class="lens" style="--c:var(--q);--ct:var(--q-t)"><b>Quality</b> MIPS of recommended vs chosen specialist</span>
+  <span class="lens" style="--c:var(--fit);--ct:var(--fit-t)"><b>Fit</b> is the chosen specialist among our 5</span>
+  <span class="lens" style="--c:var(--travel);--ct:var(--travel-t)"><b>Travel</b> miles from the patient</span>
+  <span class="lens" style="--c:var(--load);--ct:var(--load-t)"><b>Load</b> share going to the busiest 10%</span></div>
+</section>
+
+<!-- 3 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Method</span>
+  <h1>How we read a recommendation</h1>
+  <div class="row">
+    <div class="col panel" style="--tint:var(--travel-t)">
+      <p style="margin:0 0 4px"><b style="font-weight:500">A specialist is a valid option if they are</b></p>
+      <ul>
+        <li>in the same specialty as the specialist chosen</li>
+        <li>active (a claim in the past year)</li>
+        <li>not already seen by the patient in this specialty <span style="color:#44464f;font-size:15px">(first-time referrals; the specialist actually chosen is always included)</span></li>
+        <li>within 25 miles of the patient</li>
+      </ul>
+      <p style="margin:18px 0 4px"><b style="font-weight:500">Referrals analysed</b></p>
+      <ul>
+        <li>First-time referrals to specialties where the PCP picks a named doctor</li>
+        <li>Facility services (radiology, pathology, emergency, anesthesiology) and generic labels (internal medicine, NP, PA) left out</li>
+        <li><span id="n-val"></span> referrals in 2018, <span id="n-test"></span> in 2019</li>
+      </ul>
+    </div>
+    <div class="col panel" style="--tint:var(--q-t)">
+      <p style="margin:0 0 4px"><b style="font-weight:500">MIPS clean-up</b></p>
+      <ul>
+        <li>Score 0 in the data = “no MIPS score” → specialty average, flagged</li>
+        <li>Several scores (one per practice) → their average</li>
+        <li>Scores bunch at the top: median <span id="mips-med"></span>, <span id="mips-100"></span> score exactly 100</li>
+      </ul>
+      <p style="margin:18px 0 4px"><b style="font-weight:500">Two estimates of quality gain</b></p>
+      <ul>
+        <li><b style="font-weight:500">Standard:</b> each specialist at their average score</li>
+        <li><b style="font-weight:500">Cautious:</b> recommended at their lowest score, no-score = 0, chosen specialist at their highest</li>
+      </ul>
+      <p id="seen-box" style="font-size:14px;line-height:1.4;background:#fff;border-radius:14px;padding:10px 12px;margin:16px 0 0;color:#44464f"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide" data-accent="load">
+  <span class="tag">The data</span>
+  <h1>What today’s referrals look like</h1>
+  <div class="controls" id="desc-tabs"></div>
+  <div class="tabimg"><img id="desc-img" alt=""></div>
+  <p class="note" id="desc-note"></p>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-accent="fit">
+  <span class="tag">Inside the model</span>
+  <h1>What drives the model’s choices</h1>
+  <p class="sub">Why the model ranks its top pick above the specialist actually referred to (60 referrals)</p>
+  <div class="controls"><span id="shap-view"></span></div>
+  <div class="chart" id="shap"></div>
+  <div class="legend" id="shap-legend"></div>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-accent="fit">
+  <span class="tag">Inside the model</span>
+  <h1>What each input does to the recommendations</h1>
+  <p class="sub">Each bar: the model’s ranking with one input switched off, across all 2019 (or 2018) referrals. The model itself is unchanged.</p>
+  <div class="controls"><span id="rel-year"></span><span style="width:16px"></span><span id="rel-metric"></span></div>
+  <div class="chart" id="reliance"></div>
+  <p class="note">Without the PCP’s history, recommendations shift to specialists new to the PCP, away from the busiest ones, and closer to the patient: that input is what ties recommendations to familiar, busy specialists. Switching off MIPS changes almost nothing (the model does not use it).</p>
+</section>
+
+<!-- 5 -->
+<section class="slide" data-accent="q">
+  <span class="tag">Steering</span>
+  <h1>Quality vs fit: the main trade-off</h1>
+  <p class="sub">Giving MIPS more weight moves recommendations to higher-quality specialists at some cost in fit. The graph model gives better trade-offs than the PCP’s own habit.</p>
+  <div class="controls"><span id="to-year"></span><span style="width:16px"></span><span id="to-resort"></span></div>
+  <div class="chart" id="tradeoff"></div>
+  <div class="legend" id="to-legend"></div>
+</section>
+
+<!-- 6 -->
+<section class="slide" data-accent="q">
+  <span class="tag">Steering</span>
+  <h1>Steering toward quality: a 30% quality weight</h1>
+  <p class="sub">Checked once on 2019 after choosing it on 2018</p>
+  <div class="row" id="result-cards" style="flex:0 0 auto"></div>
+  <div style="margin-top:22px"><table id="result-table"></table></div>
+  <p class="note">Footnote: under a cautious estimate (recommended specialists at their lowest score, no-score specialists as 0, the chosen specialist at their highest) the gain is about zero, mostly because no-score specialists count as 0.</p>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-accent="travel">
+  <span class="tag">Travel</span>
+  <h1>How far should we let patients travel?</h1>
+  <p class="sub">Model with 30% quality weight under different distance limits</p>
+  <div class="controls"><span id="cap-year"></span></div>
+  <div class="row"><div class="col"><div class="chart" id="cap-gain"></div></div><div class="col"><div class="chart" id="cap-dist"></div></div></div>
+  <p class="note" id="cap-note"></p>
+</section>
+
+<!-- 9 -->
+<section class="slide" data-accent="fit">
+  <span class="tag">Fairness</span>
+  <h1>Is it even across patient groups?</h1>
+  <p class="sub">Does the recommender widen or narrow gaps that already exist in today’s referrals?</p>
+  <div class="controls"><span id="bias-year"></span><span style="width:16px"></span><span id="bias-metric"></span></div>
+  <div class="row"><div class="col" style="flex:1.6"><div class="chart" id="bias"></div></div>
+  <div class="col" style="flex:1"><p style="margin:0 0 6px;font-size:16px"><b style="font-weight:500">Outer area (ZIP3 754) without a distance limit</b></p><table id="area-table"></table>
+  <p class="note" style="margin-top:12px">Gender, race and age: no gap widened or narrowed in a way that repeats across both years. Removing gender and race from the model changes nothing meaningful.</p></div></div>
+</section>
+
+<!-- 13 -->
+<section class="slide" data-accent="fit">
+  <span class="tag">Patient groups</span>
+  <h1>Do PCPs and specialists match by race?</h1>
+  <p class="sub">Share of top picks whose race matches the PCP’s, compared with what the available specialists would give</p>
+  <div class="controls"><span id="conc-year"></span></div>
+  <div class="row"><div class="col" style="flex:1.5"><div class="chart" id="conc"></div></div>
+  <div class="col" style="flex:1"><div id="conc-side"></div></div></div>
+  <div class="legend" id="conc-legend"></div>
+</section>
+
+<!-- 11 -->
+<section class="slide" data-accent="load">
+  <span class="tag">Load</span>
+  <h1>Spreading the load</h1>
+  <p class="sub" id="load-sub"></p>
+  <div class="controls"><span id="load-year"></span></div>
+  <div class="row"><div class="col" style="flex:1.5"><div class="chart" id="load"></div></div>
+  <div class="col" style="flex:1"><div id="load-side"></div></div></div>
+  <div class="legend" id="load-legend"></div>
+</section>
+
+<!-- 12 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Discussion</span>
+  <h1>Open questions</h1>
+  <div class="q" style="--qc:var(--travel)"><span class="n">1</span><div><b>Distance limit.</b> Keep 25 miles, move to 50 or none, or use a per-patient limit (e.g. no farther than people in that area travel today)?</div></div>
+  <div class="q" style="--qc:var(--q)"><span class="n">2</span><div><b>MIPS of 0.</b> These specialists have about 11 years in Medicare. Is 0 “new doctor” or “no score / exempt”?</div></div>
+  <div class="q" style="--qc:var(--q)"><span class="n">3</span><div><b>Several MIPS scores.</b> They look like one score per practice (median spread 29 points). Is averaging acceptable?</div></div>
+  <div class="q" style="--qc:var(--fit)"><span class="n">4</span><div><b>How much fit to give up.</b> Quality and load improve when we move away from the PCP’s habits. What loss in top-5 match is acceptable?</div></div>
+  <div class="q" style="--qc:#52514e"><span class="n">5</span><div><b>Grace.</b> Access issues this week; all runs were done on the laptop.</div></div>
+</section>
+
+</div></div>
+<div class="nav"><button id="prev" aria-label="Previous">‹</button><div class="dots" id="dots"></div><span id="count"></span><button id="next" aria-label="Next">›</button></div>
+<div id="tip"></div>
+
+<script>
+const D = /*DATA*/null;
+const IMG = /*IMAGES*/null;
+const C = {blue:"#2a78d6",orange:"#eb6834",aqua:"#1baf7a",yellow:"#eda100",violet:"#4a3aa7",ink:"#0b0b0b",ink2:"#52514e",grid:"#e6e6e3",muted:"#8a8984"};
+const pct = v => (v==null?"—":(100*v).toFixed(1)+"%"), f1 = v => (v==null?"—":(v>=0?"+":"")+v.toFixed(1)), mi = v => (v==null?"—":v.toFixed(1)+" mi");
+
+/* ---------- navigation & scaling ---------- */
+const slides=[...document.querySelectorAll(".slide")]; let cur=0;
+const dots=document.getElementById("dots");
+slides.forEach((_,i)=>{const s=document.createElement("span");s.onclick=()=>go(i);dots.appendChild(s)});
+function go(i){cur=Math.max(0,Math.min(slides.length-1,i));slides.forEach((s,j)=>s.classList.toggle("active",j===cur));[...dots.children].forEach((d,j)=>d.classList.toggle("on",j===cur));document.getElementById("count").textContent=(cur+1)+" / "+slides.length;try{history.replaceState(null,"","#"+(cur+1))}catch(e){};renderAll();renderAll()}   // second pass: charts sized after legends/side panels are filled
+document.getElementById("prev").onclick=()=>go(cur-1);document.getElementById("next").onclick=()=>go(cur+1);
+addEventListener("keydown",e=>{if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){go(cur+1);e.preventDefault()}if(e.key==="ArrowLeft"||e.key==="PageUp")go(cur-1)});
+function fit(){const s=Math.min(innerWidth/1280,(innerHeight-60)/720);document.getElementById("deck").style.transform=`scale(${s})`}
+addEventListener("resize",()=>{fit();renderAll()});
+addEventListener("hashchange",()=>{const n=(parseInt(location.hash.slice(1))||1)-1;if(n!==cur)go(n)});
+
+/* ---------- tooltip ---------- */
+const tip=document.getElementById("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.display="block";const x=e.clientX+14,y=e.clientY+14;tip.style.left=Math.min(x,innerWidth-tip.offsetWidth-10)+"px";tip.style.top=Math.min(y,innerHeight-tip.offsetHeight-10)+"px"}
+function hideTip(){tip.style.display="none"}
+
+/* ---------- toggles ---------- */
+const state={toResort:false,toYear:"test",toEst:"gain5",concYear:"test",capYear:"test",relYear:"test",relMetric:"new_pcp5",biasYear:"test",biasMetric:"MIPS (points)",shapView:"all",loadYear:"test",desc:0};
+function toggle(id,key,opts){const el=document.getElementById(id);el.innerHTML="";opts.forEach(([v,l])=>{const b=document.createElement("button");b.className="btn"+(state[key]===v?" on":"");b.textContent=l;b.onclick=()=>{state[key]=v;toggle(id,key,opts);renderAll();renderAll()};el.appendChild(b)})}
+const YEARS=[["validation","2018"],["test","2019"]];
+
+/* ---------- svg helpers ---------- */
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function txt(parent,x,y,s,attrs={}){const t=el("text",Object.assign({x,y,fill:C.ink2,"font-size":12},attrs),parent);t.textContent=s;return t}
+function frame(id){const box=document.getElementById(id);box.innerHTML="";const w=box.clientWidth||600,h=box.clientHeight||360;const svg=el("svg",{width:w,height:h,viewBox:`0 0 ${w} ${h}`,style:"position:absolute;left:0;top:0;overflow:visible"},box);return {svg,w,h}}
+function scale(d0,d1,r0,r1){return v=>r0+(v-d0)/(d1-d0)*(r1-r0)}
+function ticks(a,b,n=5){const step=Math.pow(10,Math.floor(Math.log10((b-a)/n)));const m=[1,2,2.5,5,10].find(m=>(b-a)/(step*m)<=n)||10;const s=step*m;const out=[];for(let v=Math.ceil(a/s)*s;v<=b+1e-9;v+=s)out.push(+v.toFixed(6));return out}
+function axes(svg,x,y,xd,yd,m,w,h,xl,yl,xfmt=v=>v,yfmt=v=>v){
+  ticks(...yd).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,yfmt(v),{"text-anchor":"end"})});
+  ticks(...xd).forEach(v=>{txt(svg,x(v),h-m.b+18,xfmt(v),{"text-anchor":"middle"})});
+  el("line",{x1:m.l,x2:w-m.r,y1:h-m.b,y2:h-m.b,stroke:C.ink2},svg);
+  txt(svg,(m.l+w-m.r)/2,h-6,xl,{"text-anchor":"middle",fill:C.ink,"font-size":13});
+  const t=txt(svg,14,(m.t+h-m.b)/2,yl,{"text-anchor":"middle",fill:C.ink,"font-size":13,transform:`rotate(-90 14 ${(m.t+h-m.b)/2})`});
+}
+
+/* ---------- names ---------- */
+function variantName(fam,v){
+  const base={model:"Our model",pcp:"PCP’s habit",nearest:"Nearest specialist",mips:"Highest MIPS first",random:"Random",practice:"Actual referral",model_load_input:"Retrained: load as input",model_load_weighted:"Retrained: busy doctors down-weighted"}[fam]||fam;
+  if(v==="base")return base;
+  if(v.startsWith("blend"))return base+" + "+Math.round(parseFloat(v.slice(5))*100)+"% quality weight";
+  if(v.startsWith("resort"))return base+", top "+(v.slice(6)==="all"?"all":v.slice(6))+" re-ranked by MIPS";
+  if(v.startsWith("pen"))return "Load penalty "+v.slice(3)+" (on 30% quality weight)";
+  if(v.startsWith("cap"))return "Weekly cap ×"+v.slice(3);
+  if(v.startsWith("tb"))return "MIPS ties ("+v.split("_")[1]+" pts) → less busy first, top "+v.slice(2).split("_")[0];
+  return base+" "+v;
+}
+function tipRow(r){return `<b>${variantName(r.family,r.variant)}</b><br>Top-5 match ${pct(r.r5)}<br>MIPS gain ${f1(r.gain5)}<br>Median travel ${mi(r.dist5_median)}<br>Busiest share (top pick) ${pct(r.busy1)}`}
+
+/* ---------- slide 3 numbers ---------- */
+function staticNumbers(){
+  const tv=D.tradeoff.validation.find(r=>r.family==="practice"), tt=D.tradeoff.test.find(r=>r.family==="practice");
+  document.getElementById("n-val").textContent=(D.descriptive.funnel.validation.primary).toLocaleString();
+  document.getElementById("n-test").textContent=(2668).toLocaleString();
+  document.getElementById("mips-med").textContent=Math.round(D.descriptive["01"].median);
+  document.getElementById("mips-100").textContent=Math.round(100*D.descriptive["01"].share_100)+"%";
+  const S=D.include_seen.test; document.getElementById("seen-box").innerHTML=`<b style="font-weight:600;color:#1b1b1f">If specialists the patient already saw are allowed (2019):</b> the model’s top pick is a doctor the patient already knows in ${pct(S.seen1)} of referrals; MIPS gain stays ${f1(S.gain_incl)}; fit ${pct(S.r5_incl)} (vs ${pct(S.r5_excl)}), since in these first-time referrals the PCP chose someone new.`;
+}
+
+/* ---------- slide 4: descriptive tabs ---------- */
+const DESC=[["01","MIPS scores","Specialists’ MIPS bunch at the top; 7% have no score."],["03","Chosen vs available","A random eligible specialist scores higher than the one chosen 40% of the time, the same 24%, lower 36%."],["05","Load","The busiest 10% of specialists receive 46% of a specialty’s first-time referrals on average."],["06","Busy ≠ better","The busiest specialists do not have higher MIPS (84 vs 88 for the least busy third)."],["07","Travel","Patients travel a median 9.6 miles; the nearest eligible specialist is 3.8 miles away."]];
+function renderDesc(){const t=document.getElementById("desc-tabs");t.innerHTML="";DESC.forEach((d,i)=>{const b=document.createElement("button");b.className="btn"+(state.desc===i?" on":"");b.textContent=d[1];b.onclick=()=>{state.desc=i;renderDesc()};t.appendChild(b)});document.getElementById("desc-img").src=IMG[DESC[state.desc][0]];document.getElementById("desc-note").textContent=DESC[state.desc][2]+" (2015–2018 first-time referrals.)"}
+
+/* ---------- slide 5: trade-off ---------- */
+function renderTradeoff(){
+  toggle("to-year","toYear",YEARS);toggle("to-resort","toResort",[[false,"Quality weight only"],[true,"Also show re-rank lines"]]);
+  const rows=D.tradeoff[state.toYear], key=state.toEst; const {svg,w,h}=frame("tradeoff"); const m={l:56,r:20,t:14,b:42};
+  const pcpBase=rows.find(r=>r.family==="pcp"&&r.variant==="base");
+  const pts=rows.filter(r=>r.family!=="practice"&&(state.toResort||(!r.variant.startsWith("resort")&&r.family!=="mips"&&r.family!=="random"))); const xs=pts.map(r=>r.r5), ys=pts.map(r=>r[key]);
+  const xd=[Math.min(...xs)-0.02,Math.max(...xs)+0.02], yd=[Math.min(...ys)-1,Math.max(...ys)+1];
+  const x=scale(...xd,m.l,w-m.r), y=scale(...yd,h-m.b,m.t);
+  el("rect",{x:x(pcpBase.r5),y:m.t,width:w-m.r-x(pcpBase.r5),height:h-m.b-m.t,fill:"#f2f2ef"},svg);
+  txt(svg,w-m.r-6,m.t+14,"at least as good a fit as the PCP’s habit",{"font-size":11,"text-anchor":"end"});
+  axes(svg,x,y,xd,yd,m,w,h,"Top-5 match (how often the specialist the PCP chose is in our 5)","MIPS gain vs the chosen specialist (points)",v=>Math.round(v*100)+"%",v=>v);
+  el("line",{x1:m.l,x2:w-m.r,y1:y(0),y2:y(0),stroke:C.ink2},svg);
+  const fams=[["model",C.blue],["pcp",C.orange],["nearest",C.aqua]];
+  const ord=v=>v==="base"?0:v.startsWith("blend")?1+parseFloat(v.slice(5)):10+(v==="resortall"?999:parseInt(v.slice(6)));
+  fams.forEach(([f,col])=>{(state.toResort?["resort","blend"]:["blend"]).forEach(kind=>{
+    const s=rows.filter(r=>r.family===f&&(r.variant==="base"||r.variant.startsWith(kind))).sort((a,b)=>ord(a.variant)-ord(b.variant)); if(s.length<2)return;
+    el("path",{d:s.map((r,i)=>(i?"L":"M")+x(r.r5)+","+y(r[key])).join(""),fill:"none",stroke:col,"stroke-width":2,"stroke-dasharray":kind==="blend"?"6 4":"none"},svg)})});
+  pts.forEach(r=>{const col={model:C.blue,pcp:C.orange,nearest:C.aqua,mips:C.ink,random:C.muted}[r.family];const chosen=r.family==="model"&&r.variant==="blend0.3";const own=r.variant==="base";
+    const c=el("circle",{cx:x(r.r5),cy:y(r[key]),r:chosen?8:own?7:4.5,fill:col,stroke:chosen?C.ink:"#fff","stroke-width":chosen?2:1.2,style:"cursor:pointer"},svg);
+    c.addEventListener("mousemove",e=>showTip(e,tipRow(r)));c.addEventListener("mouseleave",hideTip)});
+  rows.filter(r=>(r.family==="model"||r.family==="pcp")&&r.variant.startsWith("blend")).forEach(r=>{const w=Math.round(parseFloat(r.variant.slice(5))*100)+"%";
+    txt(svg,x(r.r5)+(r.family==="model"?9:-9),y(r[key])+4,w,{"text-anchor":r.family==="model"?"start":"end",fill:r.family==="model"?C.blue:C.orange,"font-size":11,"font-weight":600})});
+  if(!state.toResort){const mx=rows.find(r=>r.family==="mips"),rd=rows.find(r=>r.family==="random");
+    txt(svg,m.l+8,m.t+14,`Off the chart: highest MIPS first ${f1(mx[key])} at ${pct(mx.r5)} match · random ${f1(rd[key])} at ${pct(rd.r5)}`,{"font-size":11});}
+  const ch=rows.find(r=>r.family==="model"&&r.variant==="blend0.3");txt(svg,x(ch.r5)-12,y(ch[key])-14,"chosen",{fill:C.ink,"font-size":12,"text-anchor":"end","font-weight":600});
+  document.getElementById("to-legend").innerHTML=`<span><i style="background:${C.blue}"></i>Our model</span><span><i style="background:${C.orange}"></i>PCP’s habit</span><span><i style="background:${C.aqua}"></i>Nearest specialist</span><span><i style="background:${C.ink}"></i>Highest MIPS first</span><span><i style="background:${C.muted}"></i>Random</span><span>${state.toResort?"dashed: quality weight (10–50%) · solid: re-rank the model’s top K by MIPS":"dashed: quality weight 10–50% (labels)"} · large dots: each method’s own ranking</span>`;
+}
+
+/* ---------- slide 6: result ---------- */
+function renderResult(){
+  const g=(sp,f,v)=>D.tradeoff[sp].find(r=>r.family===f&&r.variant===v);
+  const t=g("test","model","blend0.3"), pt=g("test","practice","base"), ph=g("test","pcp","base");
+  document.getElementById("result-cards").innerHTML=[
+    ["qual","Quality: MIPS gain (2019)",f1(t.gain5)+" pts",`range ${f1(t.gain5_lo)} to ${f1(t.gain5_hi)}`],
+    ["fit","Fit: top-5 match",pct(t.r5),`PCP’s habit: ${pct(ph.r5)}`],
+    ["travel","Travel: median distance",mi(t.dist5_median),`actual referrals: ${mi(pt.dist5_median)}`],
+    ["load","Load: top pick to busiest 10%",pct(t.busy1),`actual referrals: ${pct(pt.busy1)}; across all 5: ${pct(t.busy5)}`]].map(([c,k,v,d])=>`<div class="card ${c}" style="flex:1"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
+  const rowsT=[["Top-5 match","r5",pct],["MIPS gain","gain5",f1],["Top pick within 1 point or better","within1_1",pct],["Median travel","dist5_median",mi],["Top pick to a busiest-10% specialist","busy1",pct]];
+  const v=g("validation","model","blend0.3"), pv=g("validation","practice","base");
+  document.getElementById("result-table").innerHTML=`<tr><th></th><th>2018</th><th>2019</th><th>Actual referrals 2019</th></tr>`+rowsT.map(([l,k,fm])=>`<tr><td>${l}</td><td>${fm(v[k])}</td><td>${fm(t[k])}</td><td>${k==="dist5_median"||k==="busy1"?fm(pt[k]):"—"}</td></tr>`).join("");
+}
+
+/* ---------- slide 7: distance caps ---------- */
+function bars(id,items,opts){const {svg,w,h}=frame(id);const m={l:opts.left||70,r:16,t:26,b:40};const vals=items.flatMap(it=>it.vals.map(v=>v.v)).concat(opts.extra||[]);
+  const yd=[Math.min(0,...vals),Math.max(...vals)*1.15];const y=scale(...yd,h-m.b,m.t);const gw=(w-m.l-m.r)/items.length;
+  ticks(...yd,4).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,opts.yfmt?opts.yfmt(v):v,{"text-anchor":"end"})});
+  txt(svg,m.l,14,opts.title,{fill:C.ink,"font-size":14});
+  items.forEach((it,i)=>{const bw=Math.min(36,(gw-16)/it.vals.length);it.vals.forEach((vv,j)=>{const x0=m.l+i*gw+(gw-bw*it.vals.length)/2+j*bw;const r=el("rect",{x:x0+2,y:Math.min(y(vv.v),y(0)),width:bw-4,height:Math.abs(y(vv.v)-y(0)),fill:vv.c,rx:3},svg);
+    r.addEventListener("mousemove",e=>showTip(e,`<b>${it.label}</b><br>${vv.name}: ${vv.fmt?vv.fmt(vv.v):vv.v.toFixed(2)}`));r.addEventListener("mouseleave",hideTip);
+    txt(svg,x0+bw/2,(vv.v>=0?y(vv.v)-5:y(vv.v)+13),vv.fmt?vv.fmt(vv.v):vv.v.toFixed(2),{"text-anchor":"middle",fill:C.ink,"font-size":11})});
+    txt(svg,m.l+i*gw+gw/2,h-m.b+18,it.label,{"text-anchor":"middle",fill:C.ink})});
+  if(opts.refLine!=null){el("line",{x1:m.l,x2:w-m.r,y1:y(opts.refLine),y2:y(opts.refLine),stroke:C.ink2,"stroke-dasharray":"5 4"},svg);txt(svg,w-m.r,y(opts.refLine)-6,opts.refLabel,{"text-anchor":"end"})}
+  el("line",{x1:m.l,x2:w-m.r,y1:y(0),y2:y(0),stroke:C.ink2},svg)}
+function renderCaps(){toggle("cap-year","capYear",YEARS);const S=D.caps[state.capYear];const lab={"10":"10 mi","25":"25 mi (used)","50":"50 mi","none":"no limit"};
+  const items=Object.keys(lab).map(k=>{const r=S[k].find(x=>x.family==="model"&&x.variant==="blend0.3");return {label:lab[k],r}});
+  bars("cap-gain",items.map(it=>({label:it.label,vals:[{name:"MIPS gain",v:it.r.gain5,c:C.blue,fmt:f1}]})),{title:"MIPS gain of the 5 recommended (points)"});
+  const prac=S["25"].find(x=>x.family==="practice");
+  bars("cap-dist",items.map(it=>({label:it.label,vals:[{name:"median",v:it.r.dist5_median,c:C.aqua,fmt:mi},{name:"90th percentile",v:it.r.dist5_p90,c:"#97d9bf",fmt:mi}]})),{title:"Travel to recommended specialists (miles): median · 90th percentile",refLine:prac.dist5_p90,refLabel:"actual referrals, 90th pct "+mi(prac.dist5_p90),extra:[prac.dist5_p90]});
+  const n=S["none"].find(x=>x.family==="model"&&x.variant==="blend0.3");
+  document.getElementById("cap-note").textContent=`Without a limit: top-5 match ${pct(n.r5)}, MIPS gain ${f1(n.gain5)}, median travel ${mi(n.dist5_median)} vs ${mi(prac.dist5_median)} today.`;}
+
+/* ---------- slide 8: reliance ---------- */
+function renderReliance(){toggle("rel-year","relYear",YEARS);toggle("rel-metric","relMetric",[["new_pcp5","New to the PCP"],["busy1","Busiest share"],["dist5_median","Travel"],["gain5","MIPS gain (30% weight)"],["r5","Top-5 match"]]);
+  const R=D.reliance[state.relYear], k=state.relMetric, variant=k==="gain5"?"blend0.3":"base";
+  const lab={none:"nothing removed",no_pcp_history:"PCP’s history with the doctor",no_mips:"MIPS",no_distance:"distance",no_affiliation:"shared hospital",no_insurer:"insurer history"};
+  const fmt={r5:pct,new_pcp5:pct,busy1:pct,dist5_median:mi,gain5:f1}[k];
+  const items=Object.keys(lab).map(rm=>{const r=R.find(x=>x.removed===rm&&x.variant===variant);return {label:lab[rm],vals:[{name:"",v:r[k],c:rm==="none"?C.ink2:C.blue,fmt}]}});
+  bars("reliance",items,{title:{r5:"Top-5 match",new_pcp5:"Share of recommendations new to the PCP",busy1:"Top pick goes to a busiest-10% specialist",dist5_median:"Median travel (miles)",gain5:"MIPS gain with 30% quality weight"}[k]+" — model’s own ranking"+(k==="gain5"?" + 30% weight":""),yfmt:k==="dist5_median"||k==="gain5"?(v=>v):(v=>Math.round(v*100)+"%")})}
+
+/* ---------- slide 9: bias ---------- */
+function renderBias(){toggle("bias-year","biasYear",YEARS);toggle("bias-metric","biasMetric",[["MIPS (points)","Quality"],["distance (mi)","Travel"],["busiest-10% share, top-1","Busiest share"],["new-to-PCP share, top-5","New to PCP"]]);
+  const G=D.bias[state.biasYear].gaps.filter(g=>g.quantity===state.biasMetric);const {svg,w,h}=frame("bias");const m={l:190,r:20,t:10,b:40};
+  const vals=G.flatMap(g=>[g.lo,g.hi]);const ext=Math.max(...vals.map(Math.abs))*1.1;const x=scale(-ext,ext,m.l,w-m.r);const rowH=(h-m.t-m.b)/G.length;
+  ticks(-ext,ext,6).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+16,v,{"text-anchor":"middle"})});
+  el("line",{x1:x(0),x2:x(0),y1:m.t,y2:h-m.b,stroke:C.ink2},svg);
+  const nice={gender:"gender",race:"race",age_band:"age",insurer:"insurer",area_zip3:"area (ZIP3)"};
+  G.forEach((g,i)=>{const yy=m.t+rowH*(i+0.5);const sig=g.lo>0||g.hi<0;txt(svg,m.l-10,yy+4,`${nice[g.attribute]}: ${g.group}`,{"text-anchor":"end",fill:C.ink});
+    el("line",{x1:x(g.lo),x2:x(g.hi),y1:yy,y2:yy,stroke:sig?C.orange:C.blue,"stroke-width":2.5},svg);const c=el("circle",{cx:x(g.change_in_gap),cy:yy,r:5,fill:sig?C.orange:C.blue,stroke:"#fff","stroke-width":1.2,style:"cursor:pointer"},svg);
+    c.addEventListener("mousemove",e=>showTip(e,`<b>${nice[g.attribute]}: ${g.group}</b> vs ${g.reference}<br>gap today ${g.practice_gap.toFixed(2)} · in recommendations ${g.recommended_gap.toFixed(2)}<br>change ${g.change_in_gap.toFixed(2)} [${g.lo.toFixed(2)}, ${g.hi.toFixed(2)}]`));c.addEventListener("mouseleave",hideTip)});
+  txt(svg,(m.l+w-m.r)/2,h-4,"Change in the group’s gap vs today (orange = interval excludes 0)",{"text-anchor":"middle",fill:C.ink,"font-size":13});
+  const A=D.area_nocap[state.biasYear].find(r=>r.zip3==="754"), R=D.area_nocap[state.biasYear].find(r=>r.zip3==="750");
+  document.getElementById("area-table").innerHTML=`<tr><th></th><th>25-mile limit</th><th>no limit</th></tr><tr><td>MIPS gain, ZIP3 754</td><td>${f1(A.gain_25)}</td><td>${f1(A.gain_none)}</td></tr><tr><td>MIPS gain, ZIP3 750 (reference)</td><td>${f1(R.gain_25)}</td><td>${f1(R.gain_none)}</td></tr><tr><td>Travel, ZIP3 754</td><td>${mi(A.dist_25)}</td><td>${mi(A.dist_none)}</td></tr><tr><td>Travel today, ZIP3 754</td><td colspan="2">${mi(A.practice_dist)}</td></tr>`}
+
+/* ---------- slide 10: SHAP ---------- */
+function renderShap(){toggle("shap-view","shapView",[["all","All inputs"],["blocks","By block"],["specialist","Inside specialist attributes"]]);
+  const KC={specialist:C.blue,pair:C.orange,encounter:C.aqua,pcp:C.yellow}, KL={specialist:"specialist attributes",pair:"PCP–specialist / patient–specialist",encounter:"patient & encounter",pcp:"PCP attributes"};
+  let rows=D.shap.filter(r=>r.share_mean_abs>0.0005);
+  if(state.shapView==="blocks"){const agg={};rows.forEach(r=>{agg[r.kind]=(agg[r.kind]||0)+r.share_mean_abs});rows=Object.keys(agg).map(k=>({input:KL[k],kind:k,share_mean_abs:agg[k]}))}
+  if(state.shapView==="specialist")rows=rows.filter(r=>r.kind==="specialist");
+  rows.sort((a,b)=>b.share_mean_abs-a.share_mean_abs); if(state.shapView==="all")rows=rows.slice(0,22);
+  const {svg,w,h}=frame("shap");const m={l:300,r:60,t:6,b:30};const mx=Math.max(...rows.map(r=>r.hi||r.share_mean_abs))*1.08;const x=scale(0,mx,m.l,w-m.r);const rh=(h-m.t-m.b)/rows.length;
+  ticks(0,mx,5).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+16,Math.round(v*100)+"%",{"text-anchor":"middle"})});
+  rows.forEach((r,i)=>{const yy=m.t+rh*i;const name=r.input.replace(/^specialist: /,"").replace(/^pair: /,"").replace(/^patient: /,"patient ").replace(/^encounter: /,"").replace(/^PCP: /,"PCP ");
+    txt(svg,m.l-10,yy+rh/2+4,state.shapView==="all"||state.shapView==="specialist"?name:r.input,{"text-anchor":"end",fill:C.ink,"font-size":rh<16?11:12.5});
+    const b=el("rect",{x:m.l,y:yy+rh*0.15,width:x(r.share_mean_abs)-m.l,height:rh*0.7,fill:KC[r.kind],rx:2,style:"cursor:pointer"},svg);
+    if(r.lo!=null)el("line",{x1:x(r.lo),x2:x(r.hi),y1:yy+rh/2,y2:yy+rh/2,stroke:C.ink2},svg);
+    txt(svg,x(r.share_mean_abs)+6+(r.hi?x(r.hi)-x(r.share_mean_abs):0),yy+rh/2+4,(100*r.share_mean_abs).toFixed(1)+"%",{"font-size":11});
+    b.addEventListener("mousemove",e=>showTip(e,`<b>${r.input}</b><br>${(100*r.share_mean_abs).toFixed(1)}% of the explanation`+(r.mean_signed!=null?`<br>${r.mean_signed>0?"pushes toward the model’s top pick":"pushes toward the chosen specialist"} on average`:"")));b.addEventListener("mouseleave",hideTip)});
+  document.getElementById("shap-legend").innerHTML=Object.keys(KC).map(k=>`<span><i style="background:${KC[k]}"></i>${KL[k]}</span>`).join("")+"<span>Bars: share of mean |SHAP|; lines: 95% intervals. MIPS 1.3%, ratings ~1.7%.</span>"}
+
+/* ---------- slide 11: load ---------- */
+function renderLoad(){const L=D.load;const splits=Object.keys(L.splits);if(!splits.includes(state.loadYear))state.loadYear=splits[0];toggle("load-year","loadYear",YEARS.filter(y=>splits.includes(y[0])));
+  document.getElementById("load-sub").textContent=L.official?"Re-ranking our model vs retraining it to account for load (chosen on 2018, checked on 2019)":"Preview on 2018: re-ranking our model to account for load (retrained models still running)";
+  const rows=L.splits[state.loadYear];const prac=rows.find(r=>r.family==="practice");
+  const keep=rows.filter(r=>r.family!=="practice"&&(r.family!=="pcp"||r.variant==="base")&&(r.variant==="base"||r.variant==="blend0.3"||/^(pen|cap|tb10)/.test(r.variant)));
+  const {svg,w,h}=frame("load");const m={l:56,r:20,t:14,b:42};const xs=keep.map(r=>r.busy1).concat([prac.busy1]),ys=keep.map(r=>r.gain5);
+  const xd=[0,Math.max(...xs)+0.03],yd=[Math.min(0,...ys)-1,Math.max(...ys)+1];const x=scale(...xd,m.l,w-m.r),y=scale(...yd,h-m.b,m.t);
+  axes(svg,x,y,xd,yd,m,w,h,"Top pick goes to a busiest-10% specialist","MIPS gain (points)",v=>Math.round(v*100)+"%",v=>v);
+  el("line",{x1:x(prac.busy1),x2:x(prac.busy1),y1:m.t,y2:h-m.b,stroke:C.ink2,"stroke-dasharray":"5 4"},svg);txt(svg,x(prac.busy1)+5,m.t+12,"actual referrals "+pct(prac.busy1),{"font-size":11});
+  const col=r=>r.family==="model_load_input"?C.violet:r.family==="model_load_weighted"?C.yellow:r.family==="pcp"?C.orange:/^pen/.test(r.variant)?C.aqua:/^cap/.test(r.variant)?C.orange:/^tb/.test(r.variant)?C.muted:C.blue;
+  const chosen=L.decision&&L.decision.chosen;
+  keep.forEach(r=>{const isCh=chosen&&(chosen===({model:"model_unmasked_v5",model_load_input:"model_unmasked_v6_load",model_load_weighted:"model_unmasked_v5_posw"}[r.family]+":"+r.variant));
+    const c=el("circle",{cx:x(r.busy1),cy:y(r.gain5),r:isCh?9:(r.r5<0.416?4:6),fill:col(r),"fill-opacity":r.r5<0.416?0.35:1,stroke:isCh?C.ink:"#fff","stroke-width":isCh?2:1.2,style:"cursor:pointer"},svg);
+    c.addEventListener("mousemove",e=>showTip(e,tipRow(r)+(r.r5<0.416?"<br><i>top-5 match below the 41.6% floor</i>":"")));c.addEventListener("mouseleave",hideTip)});
+  document.getElementById("load-legend").innerHTML=`<span><i style="background:${C.blue}"></i>Our model (own / 30% quality)</span><span><i style="background:${C.aqua}"></i>Load penalty</span><span><i style="background:${C.orange}"></i>Weekly cap / PCP’s habit</span><span><i style="background:${C.muted}"></i>MIPS ties → less busy</span><span><i style="background:${C.violet}"></i>Retrained: load as input</span><span><i style="background:${C.yellow}"></i>Retrained: busy doctors down-weighted</span><span>faded: top-5 match below 41.6%</span>`;
+  const g=v=>rows.find(r=>r.family==="model"&&r.variant===v);const b=g("blend0.3"),p2=g("pen0.2"),c1=g("cap1.0");
+  let side=`<table><tr><th></th><th>Busiest share</th><th>Top-5 match</th><th>MIPS gain</th></tr><tr><td>Actual referrals</td><td>${pct(prac.busy1)}</td><td>—</td><td>—</td></tr>`;
+  [[b,"Our model + 30% quality"],[c1,"+ weekly cap"],[p2,"+ load penalty 0.2"]].forEach(([r,l])=>{if(r)side+=`<tr><td>${l}</td><td>${pct(r.busy1)}</td><td>${pct(r.r5)}</td><td>${f1(r.gain5)}</td></tr>`});
+  ["model_load_input","model_load_weighted"].forEach(f=>{const r=rows.find(x=>x.family===f&&x.variant==="blend0.3");if(r)side+=`<tr><td>${variantName(f,"base")} + 30%</td><td>${pct(r.busy1)}</td><td>${pct(r.r5)}</td><td>${f1(r.gain5)}</td></tr>`});
+  side+="</table>";
+  side+=chosen?`<p style="font-size:15px;margin-top:14px">Rule (fixed in advance, with a 4-point fit budget): lowest busiest share among settings with top-5 match ≥ 41.6%, travel no worse than today and MIPS gain within 1 point of our model. <b style="font-weight:500">Chosen: ${variantName(chosen.includes("v6_load")?"model_load_input":chosen.includes("posw")?"model_load_weighted":"model",chosen.split(":")[1])}.</b></p>`:`<p style="font-size:15px;margin-top:14px">Preview only. Load penalty 0.2 puts less load on the busiest specialists than today’s referrals while raising MIPS, at about 3 points of top-5 match.</p>`;
+  document.getElementById("load-side").innerHTML=side}
+
+
+/* ---------- concordance (PCP–specialist race) ---------- */
+function renderConc(){toggle("conc-year","concYear",YEARS);const rows=D.concordance[state.concYear];
+  const groups=[...new Set(rows.map(r=>r.pcp_race))];const nice=g=>g==="all PCPs"?"All PCPs":({nh_white:"White PCPs",nh_black:"Black PCPs",asian:"Asian PCPs",hispanic:"Hispanic PCPs"}[g]||g);
+  const CFG=[["Actual referrals",C.ink],["Model’s own ranking","#8ab4f8"],["Our model + 30% quality weight",C.blue],["+ load penalty 0.2",C.aqua]];
+  const {svg,w,h}=frame("conc");const m={l:120,r:20,t:10,b:40};const vals=rows.map(r=>r.share).concat(rows.map(r=>r.availability));
+  const x=scale(0,Math.max(...vals)*1.12,m.l,w-m.r);const rh=(h-m.t-m.b)/groups.length;
+  ticks(0,Math.max(...vals)*1.12,5).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+16,Math.round(v*100)+"%",{"text-anchor":"middle"})});
+  groups.forEach((g,i)=>{const yy=m.t+rh*(i+0.5);const gr=rows.filter(r=>r.pcp_race===g);const av=gr[0].availability;
+    txt(svg,m.l-10,yy+4,nice(g),{"text-anchor":"end",fill:C.ink,"font-size":13});
+    el("rect",{x:x(av)-2,y:yy-rh*0.32,width:4,height:rh*0.64,fill:"#9aa0a6",rx:2},svg);
+    CFG.forEach(([lab,col],j)=>{const r=gr.find(z=>z.config===lab);if(!r)return;const cy=yy+(j-1.5)*rh*0.14;
+      const c=el("circle",{cx:x(r.share),cy,r:6,fill:col,stroke:"#fff","stroke-width":1.2,style:"cursor:pointer"},svg);
+      c.addEventListener("mousemove",e=>showTip(e,`<b>${nice(g)} — ${lab}</b><br>same race as the PCP: ${pct(r.share)}<br>available specialists: ${pct(av)}<br>above availability: ${(100*r.excess).toFixed(1)} pts`+(lab!=="Actual referrals"?`<br>vs actual referrals: ${(100*r.change).toFixed(1)} pts [${(100*r.change_ci[0]).toFixed(1)}, ${(100*r.change_ci[1]).toFixed(1)}]`:"")+`<br>${r.n_pcps} PCPs, ${r.n_referrals.toLocaleString()} referrals`));c.addEventListener("mouseleave",hideTip)})});
+  txt(svg,(m.l+w-m.r)/2,h-4,"Top picks whose race matches the PCP’s",{"text-anchor":"middle",fill:C.ink,"font-size":13});
+  document.getElementById("conc-legend").innerHTML=`<span><i style="background:#9aa0a6"></i>Available specialists (random pick)</span>`+CFG.map(([l,c])=>`<span><i style="background:${c}"></i>${l}</span>`).join("");
+  const a=rows.filter(r=>r.pcp_race==="all PCPs");const g=l=>a.find(r=>r.config===l);
+  document.getElementById("conc-side").innerHTML=`<table><tr><th>All PCPs</th><th>Same race</th><th>Above availability</th></tr>
+    <tr><td>Available specialists</td><td>${pct(a[0].availability)}</td><td>—</td></tr>`+CFG.map(([l])=>{const r=g(l);return r?`<tr><td>${l}</td><td>${pct(r.share)}</td><td>${f1(100*r.excess)} pts</td></tr>`:""}).join("")+`</table>
+    <p style="font-size:15px;margin:12px 0 6px">Today’s referrals match ~4 points above availability. The model alone matches a little more (it copies PCP habits); the quality weight brings it back to today’s level, the load penalty lowers it.</p>
+    <p class="note" style="margin-top:4px">Provider race is imputed; ≈50–80 PCPs, so intervals are wide. Provider gender is inconsistent in the source and not analysed.</p>`}
+function renderAll(){const id=slides[cur]&&slides[cur].querySelector(".chart, #desc-img, #result-cards");
+  [renderDesc,renderTradeoff,renderResult,renderCaps,renderReliance,renderBias,renderConc,renderShap,renderLoad].forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+staticNumbers();fit();go(Math.max(0,(parseInt((location.hash||"#1").slice(1))||1)-1));
+</script>
+</body>
+</html>

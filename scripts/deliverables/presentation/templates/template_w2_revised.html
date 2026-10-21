@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral Graph — Week 2 (revised)</title>
+<style>
+/*BASE_STYLE*/
+/* ---- week-2 additions ---- */
+:root{--graph:#2a78d6;--graph-t:#e8f1fc;--table:#4a3aa7;--table-t:#ecebf8;--cf:#1baf7a;--cf-t:#e5f6ef;--heur:#8a8984;--heur-t:#f0efec;--time:#eb6834;--time-t:#fdeee7}
+.slide[data-accent=graph]{--accent:var(--graph);--tint:var(--graph-t)} .slide[data-accent=table]{--accent:var(--table);--tint:var(--table-t)}
+.slide[data-accent=time]{--accent:var(--time);--tint:var(--time-t)} .slide[data-accent=cf]{--accent:var(--cf);--tint:var(--cf-t)}
+.card.graph{--c:var(--graph);--ct:var(--graph-t)} .card.table{--c:var(--table);--ct:var(--table-t)} .card.time{--c:var(--time);--ct:var(--time-t)} .card.cf{--c:var(--cf);--ct:var(--cf-t)} .card.heur{--c:#44464f;--ct:#f0efec}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mini{font-size:15px;color:#44464f;line-height:1.45}
+.mini b{color:#1b1b1f;font-weight:600}
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi .v{font-size:34px;font-weight:500;color:var(--c,#1b1b1f);line-height:1.1}
+.kpi .k{font-size:14px;color:#44464f}
+.outcome{display:inline-block;border-radius:8px;padding:2px 9px;font-size:13px;font-weight:600}
+.o-better{background:#e5f6ef;color:#0f7a54}.o-worse{background:#fdeee7;color:#b8471c}.o-equivalent{background:#ecebf8;color:#4a3aa7}.o-inconclusive{background:#f0efec;color:#52514e}
+.runs{display:grid;grid-template-columns:repeat(17,1fr);gap:6px;margin-top:6px}
+.runs span{height:26px;border-radius:7px;background:#e3e2ea;font-size:10px;color:#44464f;display:flex;align-items:center;justify-content:center}
+.runs span.done{background:var(--time);color:#fff}
+.check{display:flex;gap:10px;align-items:flex-start;background:#f2f1f6;border-radius:16px;padding:12px 14px;font-size:15px;line-height:1.4;color:#44464f}
+.check .ok{flex:0 0 22px;height:22px;border-radius:50%;background:#1baf7a;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.check b{color:#1b1b1f;font-weight:600}
+.slide.title .chips span:nth-child(1){background:var(--graph)!important}
+</style>
+</head>
+<body>
+<div id="stage"><div class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide title">
+  <h1 class="big" style="margin-top:120px">Is a table enough? What the referral graph adds</h1>
+  <p class="sub" style="font-size:22px">Baselines without a graph, how the referral network changes year to year, and the graph model as data accumulates</p>
+  <div class="chips"><span style="background:var(--graph)">Graph</span><span style="background:var(--table)">Table</span><span style="background:var(--time)">Time</span></div>
+  <p class="sub" style="margin-top:22px">Bhaskar Ruthvik Bikkina · /*DATE*/</p>
+  <p class="note">Use ← → or the buttons below. Charts are interactive: hover for details, click the toggles. Code: <a href="https://github.com/bhaskar-ruthvik/GNN-Healthcare-Project" style="color:inherit">github.com/bhaskar-ruthvik/GNN-Healthcare-Project</a>.</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">This week</span>
+  <h1>What we explored this week</h1>
+  <p class="sub">The aim: numbers that tell us whether handling the referral data as a graph is worth it, and what a better graph model needs</p>
+  <div class="explore" style="grid-template-columns:repeat(2,1fr)">
+    <div class="ex"><span class="exn" style="background:var(--table)">1</span><div><b>Is a plain table enough?</b><span>LightGBM and logistic regression on the claim attributes alone, same referrals</span></div></div>
+    <div class="ex"><span class="exn" style="background:var(--table)">2</span><div><b>What does the table get right?</b><span>Where it matches or beats the graph model, and what it relies on</span></div></div>
+    <div class="ex"><span class="exn" style="background:var(--time)">3</span><div><b>How does the referral network change year to year?</b><span>Which connections persist, how fast it turns over</span></div></div>
+    <div class="ex"><span class="exn" style="background:var(--time)">4</span><div><b>How does the graph model change as data accumulates?</b><span>Less vs more training data; yearly snapshots (running)</span></div></div>
+  </div>
+  <div class="q" style="--qc:var(--graph);margin-top:18px"><span class="n" style="background:var(--graph)">?</span><div><b>Gender and race masking: where was it done?</b> Inside the graph model, before any embedding is built, in both training and scoring. The masked model never sees patient gender or race; it is not a filter on the final list. Checked this week: from the masked model’s embeddings, gender and race are barely predictable (AUC 0.59 and 0.61; unmasked 0.95 and 0.94; 0.5 = chance) — no more than the stand-ins in its inputs (diagnoses, insurer, location) already reveal. The graph does not amplify them.</div></div>
+</section>
+
+<!-- 3 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Set-up</span>
+  <h1>How the comparisons are kept fair</h1>
+  <p class="sub">Every model ranks the same candidates for the same referrals, and every test was written down before running</p>
+  <div class="row">
+    <div class="col" style="gap:12px">
+      <div class="check"><span class="ok">✓</span><div><b>Same referrals:</b> <span id="n-ref"></span> first-time referrals in 2018, each ranked against the same eligible specialists (same specialty, within 25 miles, new to the patient)</div></div>
+      <div class="check"><span class="ok">✓</span><div><b>Same training examples and information:</b> every model learns from the same past referrals and sees only what was known before each referral</div></div>
+      <div class="check"><span class="ok">✓</span><div><b>Same tuning:</b> each model tuned on 2018 only, by the same rule the graph model was tuned by</div></div>
+      <div class="check"><span class="ok">✓</span><div><b>Decided in advance:</b> a 2-point margin in “chosen specialist in top 5” counts as a real difference; 2019 is used once, to confirm</div></div>
+    </div>
+    <div class="col">
+      <div class="panel" style="--tint:#f2f1f6;flex:1">
+        <p class="mini" style="margin-top:0"><b>Main measure:</b> how often the specialist the PCP actually chose is among the model’s top 5 (“top-5 match”).</p>
+        <p class="mini"><b>Also shown:</b> share of the top 5 that are new to the PCP · share of top picks going to the busiest 10% of specialists · median travel · MIPS gain with a 30% quality weight.</p>
+        <p class="mini"><b>Models</b></p>
+        <div class="lenses">
+          <span class="lens" style="--c:var(--graph);--ct:var(--graph-t)"><b>Graph</b>GNN, with and without message passing</span>
+          <span class="lens" style="--c:var(--table);--ct:var(--table-t)"><b>Table</b>LightGBM, logistic regression: claim attributes only (patient, diagnosis, doctors, distance)</span>
+          <span class="lens" style="--c:#44464f;--ct:#f0efec"><b>Rule</b>PCP habit, random</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide" data-accent="table">
+  <span class="tag">1 · Baselines</span>
+  <h1>The graph model is level with a plain table</h1>
+  <p class="sub">2018 first-time referrals; seed-averaged where two runs exist</p>
+  <div class="controls" id="base-metric"></div>
+  <div class="row"><div class="col"><div class="chart" id="base-chart"></div></div>
+    <div class="col" style="flex:0 0 300px;gap:12px">
+      <div class="card graph"><div class="k">Graph model</div><div class="v" id="k-gnn"></div><div class="d">top-5 match</div></div>
+      <div class="card table"><div class="k">LightGBM, claim attributes only</div><div class="v" id="k-tab"></div><div class="d">no referral history, no network</div></div>
+      <div class="card graph"><div class="k">GNN without message passing</div><div class="v" id="k-net"></div><div class="d">same inputs, no graph</div></div>
+    </div></div>
+  <p class="note" id="base-note"></p>
+</section>
+
+<!-- 5 -->
+<section class="slide" data-accent="table">
+  <span class="tag">2 · Fit</span>
+  <h1>Within the right specialty, graph and table are level</h1>
+  <p class="sub">Bars: difference in top-5 match with its 95% interval; shaded band = the ±2-point margin set in advance</p>
+  <div class="row">
+    <div class="col" style="flex:0 0 430px;gap:7px" id="ladder"></div>
+    <div class="col"><div class="chart" id="tests"></div></div>
+  </div>
+  <p class="note">Intervals resample whole PCPs (only 119 PCPs, so they are deliberately wide). “Inconclusive” = the interval spans the margin.</p>
+</section>
+
+<!-- 6 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">3 · Four lenses</span>
+  <h1>At equal quality, the graph model concentrates load less</h1>
+  <p class="sub">2018 first-time referrals, same candidates; with the 30% quality weight where stated</p>
+  <div class="row"><div class="col"><table id="lens-table"></table>
+    <p class="note" style="margin-top:12px">Fit = the specialist the PCP chose is in our 5 · Quality = MIPS points vs the chosen specialist · Travel = median miles from the patient · Load = top picks going to the busiest 10% (actual referrals 29.9%) · New = share of the 5 the PCP has never used.</p></div>
+    <div class="col" style="flex:0 0 330px"><div class="panel" style="--tint:#f2f1f6">
+      <p class="mini" style="margin-top:0"><b>Reading.</b> On fit and quality the two are level. The graph model has lower load: about 6 points fewer top picks on the busiest specialists. (A later pre-registered check found this does not come from message passing or PCP history; see the story deck.) The table proposes more new connections and slightly shorter trips.</p>
+      <p class="mini"><b>Confirmed on 2019</b> (used once): load −5.4 points [−7.3, −3.4]; quality +0.5 (n.s.); fit +2.1 points; new connections −11 points.</p>
+      <p class="mini">What the table relies on: specialist attributes (<span id="imp-spec"></span>), distance (<span id="imp-dist"></span>), diagnosis (<span id="imp-dx"></span>). The graph model leans on who the PCP referred to before — history that mostly does not recur (next slide).</p>
+      <p class="mini"><b>So:</b> the graph model is not yet using the network to make better connections than a table can. That is what the architecture work targets.</p>
+    </div></div></div>
+</section>
+
+<!-- 6b -->
+<section class="slide" data-accent="load">
+  <span class="tag">4 · Across groups</span>
+  <h1>In almost every group, the graph model has lower load</h1>
+  <p class="sub">Graph model − table, with the 30% quality weight; 2018 first-time referrals. Intervals resample whole PCPs</p>
+  <div class="controls" id="split-metric"></div>
+  <div class="row"><div class="col"><div class="chart" id="split-chart"></div><div class="legend" id="split-legend"></div></div>
+    <div class="col" style="flex:0 0 330px;gap:10px">
+      <div class="panel" style="--tint:var(--load-t)"><p class="mini" style="margin:0"><b>Reading.</b> The graph model sends fewer top picks to the busiest 10% of specialists than the table in every group large enough to judge — by patient age, access, PCP tenure and network, and the specialist’s tenure, experience and location — while its MIPS gain is equal or higher.</p></div>
+      <div id="exposure"></div>
+      <p class="note" style="margin-top:0">Hollow markers: fewer than 100 patients (not judged). Groups are defined from data only (no outside downloads): access = distance to the 5th-nearest eligible specialist; tenure = years enrolled in Medicare.</p>
+    </div></div>
+</section>
+
+<!-- 6c -->
+<section class="slide" data-accent="graph">
+  <span class="tag">5 · What the table does differently</span>
+  <h1>The table’s extra new connections often lack history with the patient’s insurer</h1>
+  <p class="sub">2018, with the 30% quality weight. Where the table recommends specialists new to the PCP that the graph model does not, compared with what the graph model recommends instead</p>
+  <div class="row"><div class="col"><table id="nc-table"></table>
+    <p class="note" style="margin-top:10px" id="nc-note"></p></div>
+    <div class="col" style="flex:0 0 360px;gap:10px">
+      <div class="panel" style="--tint:var(--graph-t)"><p class="mini" style="margin:0"><b>Reading.</b> Slightly higher MIPS and closer, but often never seen the patient’s insurer. The graph model knows these relationships from the network, so its new connections are fewer but more feasible.</p></div>
+      <div class="panel" style="--tint:#f2f1f6"><p class="mini" style="margin:0"><b>Inside both models.</b> MIPS carries little weight (<span id="mi-tab"></span> of the table, ≈1% of the graph model). Both imitate PCP choices, which are MIPS-neutral; the MIPS gain comes from the 30% quality weight.</p></div>
+      <div class="panel" style="--tint:var(--load-t)"><p class="mini" style="margin:0"><b>Next model change: the objective.</b> Train toward better-MIPS, less-congested specialists, keeping the graph’s insurer and condition fit.</p></div>
+    </div></div>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-accent="time">
+  <span class="tag">6 · Network over time</span>
+  <h1>The referral network turns over fast</h1>
+  <p class="sub">PCPs active in both years; January–October of each year</p>
+  <div class="row"><div class="col"><div class="chart" id="net-chart"></div><div class="legend" id="net-legend"></div></div>
+    <div class="col" style="flex:0 0 330px;gap:12px">
+      <div class="card time"><div class="k">Connections that recur next year</div><div class="v" id="k-recur"></div><div class="d">PCP–specialist pairs, same PCPs</div></div>
+      <div class="card time"><div class="k">Busiest 10% of specialists receive</div><div class="v" id="k-conc"></div><div class="d">of their specialty’s referrals: stable every year</div></div>
+      <div class="card time"><div class="k">MIPS: new vs repeated connections</div><div class="v" id="k-mips"></div><div class="d">new connections are not higher quality</div></div>
+    </div></div>
+  <p class="note">“Never used by this PCP” can only look back to the 2015 data start, so earlier years overstate newness. 2019 has fewer active PCPs (71 vs 102).</p>
+</section>
+
+<!-- 7b -->
+<section class="slide" data-accent="time">
+  <span class="tag">6 · Network over time</span>
+  <h1>Watch the referral network change</h1>
+  <p class="sub" id="nv-sub"></p>
+  <div class="row"><div class="col"><div style="display:flex;gap:12px;align-items:center;margin-bottom:6px">
+      <span id="nv-view"></span><button class="btn" id="nv-play">▶ Play</button><input type="range" id="nv-year" min="2016" max="2019" step="1" value="2016" style="flex:1"><b id="nv-label" style="font-size:20px;min-width:52px">2016</b></div>
+    <div class="chart" id="nv-box"><canvas id="nv-canvas" style="position:absolute;left:0;top:0"></canvas></div>
+    <div class="legend"><span><i style="background:#9aa0ad"></i>continued from last year</span><span><i style="background:#eb6834"></i>new this year</span><span><i style="background:#e6e3ef;border:1px dashed #a9a3c2"></i>dropped since last year</span><span><i style="background:#1d2b53;border-radius:50%"></i>PCP</span><span><i style="background:#c9c8d3;border-radius:50%"></i>specialist (size = referrals)</span><span><i style="background:#fff;border:2px solid #eb6834;border-radius:50%"></i>busiest 10% in specialty</span></div></div>
+    <div class="col" style="flex:0 0 300px;gap:10px">
+      <div class="card time"><div class="k">Whole network: connections new this year</div><div class="v" id="nv-new"></div><div class="d" id="nv-new-d"></div></div>
+      <div class="card time"><div class="k">Overlap with last year’s connections</div><div class="v" id="nv-rec"></div><div class="d">PCPs active in both years</div></div>
+      <div class="card time"><div class="k">Busiest 10% receive</div><div class="v" id="nv-busy"></div><div class="d">of their specialty’s referrals</div></div>
+      <p class="note" style="margin-top:0">Cards give whole-network figures. Faint dots in the sample: that PCP’s past or future partners not used this year. 2016 looks almost all new because the data starts in 2015.</p>
+    </div></div>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-accent="time">
+  <span class="tag">7 · More data</span>
+  <h1>Graph models need less data, then plateau</h1>
+  <p class="sub">Trained on 2015–2016 vs 2015–2017, all scored on the same 2018 referrals · preliminary</p>
+  <div class="row"><div class="col"><div class="chart" id="ds-chart"></div><div class="legend"><span><i style="background:#c9c8d3"></i>Trained 2015–2016</span><span><i style="background:var(--time)"></i>Trained 2015–2017</span></div></div>
+    <div class="col" style="flex:0 0 380px;gap:10px" id="ds-gaps"></div></div>
+  <p class="note">Preliminary: one seed for the two GNN runs (run-to-run noise ≈ 1 point); feature scaling fitted on 2015–2017; the 2015–2016 models are scored one year further out. The yearly snapshots remove all three.</p>
+</section>
+
+<!-- 9 -->
+<section class="slide" data-accent="time">
+  <span class="tag">8 · Yearly snapshots</span>
+  <h1>The same graph model, retrained as data accumulates</h1>
+  <p class="sub">Four snapshots; each holds out its last 3 months to decide when to stop training</p>
+  <div class="row">
+    <div class="col"><div class="chart" id="snap-timeline" style="flex:0 0 210px"></div>
+      <p class="mini" style="margin:6px 0 4px"><b>Runs</b> (GNN and GNN without message passing; extra copies measure run-to-run noise)</p>
+      <div class="runs" id="snap-runs"></div>
+      <p class="mini" style="margin-top:12px"><b>What gets compared across snapshots:</b> what drives recommendations · how specialists’ positions shift · which specialists are central · how much the model draws from the graph · whether message passing pays off more as the network grows.</p></div>
+    <div class="col" style="flex:0 0 370px;gap:10px">
+      <div class="check"><span class="ok">✓</span><div><b>Rebuilt from raw data per snapshot</b>, with only the dates changed. With today’s dates the rebuild reproduces the current inputs exactly (≈ 320k values, 0 differences).</div></div>
+      <div class="check"><span class="ok">✓</span><div><b>No leakage:</b> scrambling all data after the 2016 cut-off leaves everything the 2016 model trains on unchanged.</div></div>
+      <div class="check"><span class="ok">✓</span><div><b>Independently reviewed</b> before training.</div></div>
+      <div class="panel" style="--tint:var(--time-t)"><p class="mini" style="margin:0"><span id="snap-status"></span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Discussion</span>
+  <h1>Questions for you</h1>
+  <p class="sub">Decisions that shape the next experiments</p>
+  <div class="q" style="--qc:var(--table)"><span class="n">1</span><div><b>Next model change: the training objective.</b> Both models are trained to imitate PCP choices, which are MIPS-neutral. Proposal: train toward better-MIPS, less-congested specialists while keeping the insurer and condition fit the graph provides. Agree with this direction?</div></div>
+  <div class="q" style="--qc:var(--time)"><span class="n">2</span><div><b>Pitch framing.</b> Graph models are more data-efficient and use new referrals without retraining, but the current one plateaus. Is “the relational structure matters; the current architecture under-uses it” the right story?</div></div>
+  <div class="q" style="--qc:var(--graph)"><span class="n">3</span><div><b>Data on TAMUS VISION.</b> Does the approval for the prepared (never raw) inputs cover VISION as well as Grace?</div></div>
+  <div class="q" style="--qc:var(--cf)"><span class="n">4</span><div><b>Patient rurality and career stage.</b> The data has rural/urban codes only for doctors, and only years enrolled in Medicare (one fixed number per doctor, piling up at 15). OK to add the public USDA ZIP rural codes and graduation year from Medicare’s doctor directory (by NPI)?</div></div>
+</section>
+
+</div></div>
+<div id="tip"></div>
+<div class="nav"><button id="prev">‹</button><div class="dots" id="dots"></div><span id="count"></span><button id="next">›</button></div>
+
+<script>
+const D = /*DATA*/null;
+const NV = /*NETVIZ*/null;
+const C = {graph:"#2a78d6",table:"#4a3aa7",cf:"#1baf7a",heur:"#8a8984",time:"#eb6834",ink:"#1b1b1f",ink2:"#52514e",grid:"#e6e6e3",light:"#c9c8d3"};
+const KC = {graph:C.graph,table:C.table,cf:C.cf,heur:C.heur};
+const pct=v=>(v==null?"—":(100*v).toFixed(1)+"%"), pts=v=>(v==null?"—":(v>=0?"+":"")+(100*v).toFixed(1)), f1=v=>(v==null?"—":(v>=0?"+":"")+v.toFixed(1)), mi=v=>(v==null?"—":v.toFixed(1)+" mi");
+
+/* ---------- navigation & scaling ---------- */
+const slides=[...document.querySelectorAll(".slide")]; let cur=0;
+const dots=document.getElementById("dots");
+slides.forEach((_,i)=>{const s=document.createElement("span");s.onclick=()=>go(i);dots.appendChild(s)});
+function go(i){cur=Math.max(0,Math.min(slides.length-1,i));slides.forEach((s,j)=>s.classList.toggle("active",j===cur));[...dots.children].forEach((d,j)=>d.classList.toggle("on",j===cur));document.getElementById("count").textContent=(cur+1)+" / "+slides.length;try{history.replaceState(null,"","#"+(cur+1))}catch(e){};renderAll();renderAll()}
+document.getElementById("prev").onclick=()=>go(cur-1);document.getElementById("next").onclick=()=>go(cur+1);
+addEventListener("keydown",e=>{if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){go(cur+1);e.preventDefault()}if(e.key==="ArrowLeft"||e.key==="PageUp")go(cur-1)});
+function fit(){const s=Math.min(innerWidth/1280,(innerHeight-60)/720);document.getElementById("deck").style.transform=`scale(${s})`}
+addEventListener("resize",()=>{fit();renderAll()});
+addEventListener("hashchange",()=>{const n=(parseInt(location.hash.slice(1))||1)-1;if(n!==cur)go(n)});
+
+/* ---------- tooltip, toggles, svg helpers ---------- */
+const tip=document.getElementById("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.display="block";const x=e.clientX+14,y=e.clientY+14;tip.style.left=Math.min(x,innerWidth-tip.offsetWidth-10)+"px";tip.style.top=Math.min(y,innerHeight-tip.offsetHeight-10)+"px"}
+function hideTip(){tip.style.display="none"}
+const state={baseMetric:"R@5",impModel:"graph"};
+function toggle(id,key,opts){const el_=document.getElementById(id);el_.innerHTML="";opts.forEach(([v,l])=>{const b=document.createElement("button");b.className="btn"+(state[key]===v?" on":"");b.textContent=l;b.onclick=()=>{state[key]=v;toggle(id,key,opts);renderAll();renderAll()};el_.appendChild(b)})}
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function txt(parent,x,y,s,attrs={}){const t=el("text",Object.assign({x,y,fill:C.ink2,"font-size":12},attrs),parent);t.textContent=s;return t}
+function frame(id){const box=document.getElementById(id);box.innerHTML="";const w=box.clientWidth||600,h=box.clientHeight||360;const svg=el("svg",{width:w,height:h,viewBox:`0 0 ${w} ${h}`,style:"position:absolute;left:0;top:0;overflow:visible"},box);return {svg,w,h}}
+function scale(d0,d1,r0,r1){return v=>r0+(v-d0)/(d1-d0)*(r1-r0)}
+function ticks(a,b,n=5){const step=Math.pow(10,Math.floor(Math.log10((b-a)/n)));const m=[1,2,2.5,5,10].find(m=>(b-a)/(step*m)<=n)||10;const s=step*m;const out=[];for(let v=Math.ceil(a/s)*s;v<=b+1e-9;v+=s)out.push(+v.toFixed(6));return out}
+const arm=k=>D.baselines.arms.find(a=>a.key===k);
+
+/* ---------- slide 3/4: baselines ---------- */
+const METRICS=[["R@5","Fit (top-5 match)",pct,"higher = closer to what PCPs chose"],["new_to_PCP_top5","New to the PCP",pct,"share of the top 5 the PCP has never referred to"],
+  ["busiest_top1","Load (top pick)",pct,"share of top picks going to the busiest 10% (actual referrals: 29.9%)"],["median_dist_top5_mi","Travel",mi,"median miles from the patient"],
+  ["MIPS_gain_blend0.3","MIPS gain (30% weight)",f1,"MIPS points vs the chosen specialist, with a 30% quality weight"]];
+function renderBase(){
+  toggle("base-metric","baseMetric",METRICS.map(m=>[m[0],m[1]]));const M=METRICS.find(m=>m[0]===state.baseMetric);
+  const rows=D.baselines.arms.filter(a=>a[M[0]]!=null&&a.key!=="random"&&!(a.key==="mips_sorted"&&M[0]!=="R@5")).sort((a,b)=>b[M[0]]-a[M[0]]);
+  const {svg,w,h}=frame("base-chart");const m={l:250,r:70,t:8,b:30};const vmax=Math.max(...rows.map(r=>r[M[0]]))*1.08,vmin=Math.min(0,...rows.map(r=>r[M[0]]));
+  const x=scale(vmin,vmax,m.l,w-m.r);const bh=(h-m.t-m.b)/rows.length;
+  ticks(vmin,vmax,5).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+16,M[2](v),{"text-anchor":"middle","font-size":11})});
+  rows.forEach((r,i)=>{const y0=m.t+i*bh;const hl=["gnn","lgbm_tabular","lgbm_graph"].includes(r.key);
+    txt(svg,m.l-10,y0+bh/2+4,r.name,{"text-anchor":"end","font-size":13,fill:hl?C.ink:C.ink2,"font-weight":hl?600:400});
+    const rc=el("rect",{x:Math.min(x(0),x(r[M[0]])),y:y0+bh*0.18,width:Math.abs(x(r[M[0]])-x(0)),height:bh*0.64,rx:5,fill:KC[r.kind],opacity:hl?1:0.55},svg);
+    txt(svg,Math.max(x(0),x(r[M[0]]))+6,y0+bh/2+4,M[2](r[M[0]]),{"font-size":12,fill:C.ink});
+    rc.onmousemove=e=>showTip(e,`<b>${r.name}</b><br>Top-5 match ${pct(r["R@5"])}<br>New to the PCP ${pct(r.new_to_PCP_top5)}<br>load (top pick) ${pct(r.busiest_top1)}<br>Travel ${mi(r.median_dist_top5_mi)}${r["MIPS_gain_blend0.3"]!=null?`<br>With 30% quality weight: top-5 ${pct(r["R@5_blend0.3"])}, MIPS ${f1(r["MIPS_gain_blend0.3"])}`:""}`);rc.onmouseleave=hideTip});
+  document.getElementById("base-note").textContent=M[1]+": "+M[3]+". n = "+D.baselines.n.toLocaleString()+" referrals.";
+  document.getElementById("k-gnn").textContent=pct(arm("gnn")["R@5"]);document.getElementById("k-tab").textContent=pct(arm("lgbm_tabular")["R@5"]);document.getElementById("k-net").textContent=pct(arm("nograph")["R@5"]);
+  document.getElementById("n-ref").textContent=D.baselines.n.toLocaleString();
+}
+
+/* ---------- slide 5: ladder + tests ---------- */
+function renderLadder(){
+  const L=document.getElementById("ladder");const step=(lab,k,c,d)=>`<div class="card ${c}" style="padding:8px 14px;display:flex;align-items:baseline;gap:12px"><span class="v" style="font-size:22px;flex:0 0 70px">${pct(arm(k)["R@5"])}</span><div><div class="k" style="margin:0">${lab}</div><div class="mini" style="font-size:13px">${d}</div></div></div>`;
+  L.innerHTML=`<p class="mini" style="margin:0"><b>Table models</b> (claim attributes only)</p>`+step("LightGBM","lgbm_tabular","table","patient, diagnosis, doctors, distance")+step("Logistic regression","logreg_tabular","table","same attributes, linear")+
+    `<p class="mini" style="margin:6px 0 0"><b>Graph models</b></p>`+step("GNN without message passing","nograph","graph","same inputs, no graph")+step("GNN","gnn","graph","current graph model");
+  const T=[["Graph model − table (claim attributes)",D.tests.tabular],["GNN − GNN without message passing",D.tests.message_passing]];
+  const {svg,w,h}=frame("tests");const m={l:20,r:20,t:30,b:40};const ext=0.05;const x=scale(-ext,ext,m.l,w-m.r);const rh=(h-m.t-m.b)/T.length;
+  el("rect",{x:x(-0.02),y:m.t,width:x(0.02)-x(-0.02),height:h-m.t-m.b,fill:"#ecebf8",rx:6},svg);el("line",{x1:x(0),x2:x(0),y1:m.t,y2:h-m.b,stroke:C.ink2},svg);
+  ticks(-ext,ext,6).forEach(v=>txt(svg,x(v),h-m.b+18,pts(v),{"text-anchor":"middle","font-size":11}));txt(svg,(m.l+w-m.r)/2,h-4,"difference in top-5 match (points)",{"text-anchor":"middle",fill:C.ink,"font-size":12});
+  T.forEach(([lab,t],i)=>{const yc=m.t+i*rh+rh/2+10;txt(svg,m.l+4,yc-24,lab,{fill:C.ink,"font-size":14,"font-weight":500});
+    el("line",{x1:x(t.ci[0]),x2:x(t.ci[1]),y1:yc,y2:yc,stroke:C.ink,"stroke-width":3,"stroke-linecap":"round"},svg);const c=el("circle",{cx:x(t.point),cy:yc,r:8,fill:t.outcome==="worse"?C.time:t.outcome==="better"?C.cf:C.table},svg);
+    const lab2={better:"better",worse:"worse",equivalent:"equivalent",inconclusive:"inconclusive"}[t.outcome];txt(svg,w-m.r,yc-24,`${pts(t.point)} points · ${lab2}`,{"text-anchor":"end",fill:C.ink,"font-size":13,"font-weight":600});
+    c.onmousemove=e=>showTip(e,`<b>${lab}</b><br>${pts(t.point)} points, 95% interval ${pts(t.ci[0])} to ${pts(t.ci[1])}<br>Adjusted for ~10 tests: ${pts(t.ci_adj[0])} to ${pts(t.ci_adj[1])}<br>Run-to-run noise ≈ ${(100*t.band).toFixed(1)} points<br>Outcome: <b>${lab2}</b>`);c.onmouseleave=hideTip});
+  txt(svg,x(0),m.t-12,"±2-point margin",{"text-anchor":"middle","font-size":11,fill:C.table});
+}
+
+/* ---------- slide 6: four lenses ---------- */
+function renderImp(){
+  const L=[["Fit (top-5 match)","R@5",pct],["Quality (MIPS gain, 30% weight)","MIPS_gain_blend0.3",f1],["Fit with 30% weight","R@5_blend0.3",pct],["Travel (median)","median_dist_top5_mi",mi],["Load (top pick)","busiest_top1",pct],["New to the PCP (top 5)","new_to_PCP_top5",pct]];
+  const A=[["gnn","Graph model"],["lgbm_tabular","Table (LightGBM)"],["pcp_habit","PCP habit"]];
+  document.getElementById("lens-table").innerHTML="<tr><th></th>"+A.map(a=>`<th>${a[1]}</th>`).join("")+"</tr>"+L.map(([lab,k,fm])=>"<tr><td>"+lab+"</td>"+A.map(a=>`<td>${fm(arm(a[0])[k])}</td>`).join("")+"</tr>").join("");
+  const imp=g=>{const r=D.importance.tabular.find(x=>x.group.startsWith(g));return r?pct(r.share):"—"};
+  document.getElementById("imp-spec").textContent=imp("Specialist attributes");document.getElementById("imp-dist").textContent=imp("Distance from patient");document.getElementById("imp-dx").textContent=imp("Diagnosis");
+  return;
+  const rows=D.importance.tabular.slice(0,10);const {svg,w,h}=frame("imp-chart");const m={l:330,r:60,t:6,b:24};const x=scale(0,Math.max(...rows.map(r=>r.share))*1.1,m.l,w-m.r);const bh=(h-m.t-m.b)/rows.length;
+  rows.forEach((r,i)=>{const y0=m.t+i*bh;const hl=i<3;txt(svg,m.l-10,y0+bh/2+4,r.group,{"text-anchor":"end","font-size":13,fill:hl?C.table:C.ink2,"font-weight":hl?600:400});
+    el("rect",{x:m.l,y:y0+bh*0.2,width:x(r.share)-m.l,height:bh*0.6,rx:5,fill:hl?C.table:"#b9b6d6"},svg);txt(svg,x(r.share)+6,y0+bh/2+4,pct(r.share),{"font-size":12,fill:C.ink})});
+  document.getElementById("fp-tab").textContent=D.fullpool.lgbm_tabular.toFixed(3);document.getElementById("fp-gnn").textContent=D.fullpool.gnn.toFixed(3);
+}
+
+/* ---------- slide 7: network evolution ---------- */
+function renderNet(){
+  const T=D.network.transitions.filter(t=>t.from>=2016);const S=[["panel_edge_jaccard","Connections that recur next year",C.time],["median_share_t1_referrals_to_specialists_not_used_in_t","Referrals to specialists not used the year before",C.table],["community_ARI","Agreement of referral communities (index 0–1, plotted on the same scale; 1 = identical)",C.cf]];
+  const {svg,w,h}=frame("net-chart");const m={l:56,r:20,t:14,b:36};const x=i=>m.l+(i+0.5)*(w-m.l-m.r)/T.length;const y=scale(0,0.8,h-m.b,m.t);
+  ticks(0,0.8,4).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,(100*v).toFixed(0)+"%",{"text-anchor":"end"})});
+  T.forEach((t,i)=>txt(svg,x(i),h-m.b+20,`${t.from} → ${t.to}`,{"text-anchor":"middle","font-size":13,fill:C.ink}));
+  S.forEach(([k,lab,c])=>{const p=T.map((t,i)=>`${x(i)},${y(t[k])}`).join(" ");el("polyline",{points:p,fill:"none",stroke:c,"stroke-width":3},svg);
+    T.forEach((t,i)=>{const d=el("circle",{cx:x(i),cy:y(t[k]),r:6,fill:c},svg);txt(svg,x(i)+9,y(t[k])+(k==="community_ARI"?18:-8),k==="community_ARI"?t[k].toFixed(2):(100*t[k]).toFixed(0)+"%",{"font-size":12,fill:c,"font-weight":600});
+      d.onmousemove=e=>showTip(e,`<b>${t.from} → ${t.to}</b><br>${lab}: ${k==="community_ARI"?t[k].toFixed(2)+" (index, 0–1)":(100*t[k]).toFixed(1)+"%"}<br>PCPs in both years: ${t.stable_panel_pcps}`);d.onmouseleave=hideTip})});
+  document.getElementById("net-legend").innerHTML=S.map(([k,l,c])=>`<span><i style="background:${c}"></i>${l}</span>`).join("");
+  const j=T.map(t=>t.panel_edge_jaccard);document.getElementById("k-recur").textContent=`${Math.round(100*Math.min(...j))}–${Math.round(100*Math.max(...j))}%`;
+  const Y=D.network.yearly.filter(r=>r.year>=2016).map(r=>r.median_busiest10_share);document.getElementById("k-conc").textContent=`${Math.round(100*Math.min(...Y))}–${Math.round(100*Math.max(...Y))}%`;
+  const last=T[T.length-1];document.getElementById("k-mips").textContent=`${last.mips_new_edges_mean.toFixed(0)} vs ${last.mips_retained_edges_mean.toFixed(0)}`;
+}
+
+/* ---------- slide 8: data size ---------- */
+function renderDS(){
+  const models=["GNN","GNN, no message passing","LightGBM pure tabular"],lab={"GNN":"Graph model","GNN, no message passing":"GNN, no message passing","LightGBM pure tabular":"Table (claim attributes)"};
+  const g=(p,mo)=>D.datasize.models.find(r=>r.trained_on===p&&r.model===mo);const {svg,w,h}=frame("ds-chart");const m={l:56,r:20,t:14,b:40};const y=scale(0.40,0.53,h-m.b,m.t);const gw=(w-m.l-m.r)/models.length;
+  ticks(0.40,0.53,5).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,(100*v).toFixed(0)+"%",{"text-anchor":"end"})});
+  txt(svg,14,(m.t+h-m.b)/2,"top-5 match",{"text-anchor":"middle",fill:C.ink,"font-size":12,transform:`rotate(-90 14 ${(m.t+h-m.b)/2})`});
+  models.forEach((mo,i)=>{[["2015-2016",C.light],["2015-2017",C.time]].forEach(([p,c],j)=>{const r=g(p,mo);const bx=m.l+i*gw+gw*0.18+j*gw*0.32;const b=el("rect",{x:bx,y:y(r.r5),width:gw*0.28,height:y(0.40)-y(r.r5),rx:5,fill:c},svg);
+      txt(svg,bx+gw*0.14,y(r.r5)-6,(100*r.r5).toFixed(1),{"text-anchor":"middle","font-size":12,fill:C.ink});b.onmousemove=e=>showTip(e,`<b>${lab[mo]}</b>, trained ${p.replace("-","–")}<br>Top-5 match ${pct(r.r5)} (95% ${pct(r.ci[0])}–${pct(r.ci[1])})`);b.onmouseleave=hideTip});
+    txt(svg,m.l+i*gw+gw/2,h-m.b+20,lab[mo],{"text-anchor":"middle","font-size":13,fill:C.ink})});
+  const G=document.getElementById("ds-gaps");const names={"GNN − LightGBM pure tabular":"Graph model − table","GNN − GNN, no message passing":"Message passing (GNN − no-graph)"};
+  G.innerHTML=`<p class="mini" style="margin:0"><b>Gaps</b> (points of top-5 match)</p>`+D.datasize.gaps.filter(x=>names[x.gap]).map(x=>`<div class="card time" style="padding:12px 16px"><div class="k">${names[x.gap]}</div><div style="display:flex;gap:18px;align-items:baseline"><span class="mini">2015–16: <b style="font-size:20px">${pts(x.a)}</b></span><span class="mini">2015–17: <b style="font-size:20px">${pts(x.b)}</b></span></div></div>`).join("")+
+    `<p class="mini" style="margin:4px 0 0">With less data, the graph model clearly beats the table. Trained only to 2016 it scores as well as when trained to 2017: at scoring time it reads the live network, so new referrals help without retraining. But it doesn’t turn extra training data into better rankings, while the table catches up.</p>`;
+}
+
+/* ---------- slide 9: snapshots ---------- */
+function renderSnap(){
+  const W=D.snapshots.windows,N=["S16","S17","S18","S19"];const {svg,w,h}=frame("snap-timeline");const m={l:80,r:16,t:10,b:26};const d=s=>new Date(s).getTime();const x=scale(d("2015-01-01"),d("2019-11-01"),m.l,w-m.r);const rh=(h-m.t-m.b)/4;
+  [2015,2016,2017,2018,2019].forEach(yv=>{el("line",{x1:x(d(yv+"-01-01")),x2:x(d(yv+"-01-01")),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(d(yv+"-01-01"))+4,h-m.b+16,String(yv),{"font-size":12})});
+  const ends={S16:"2016-12-31",S17:"2017-12-31",S18:"2018-12-31",S19:"2019-10-21"};
+  N.forEach((s,i)=>{const y0=m.t+i*rh+rh*0.2;txt(svg,m.l-10,y0+rh*0.42,s.replace("S","20").replace("2016","2016").replace(/^20(\d\d)$/,"to 20$1"),{"text-anchor":"end","font-size":13,fill:C.ink});
+    const tr=el("rect",{x:x(d("2015-01-01")),y:y0,width:x(d(W[s][0]))-x(d("2015-01-01")),height:rh*0.6,rx:5,fill:"#f6c9b4"},svg);const ho=el("rect",{x:x(d(W[s][0])),y:y0,width:x(d(ends[s]))-x(d(W[s][0])),height:rh*0.6,rx:5,fill:C.time},svg);
+    tr.onmousemove=e=>showTip(e,`<b>${s}</b> training: to ${W[s][0]}<br>${D.snapshots.train_queries[s].toLocaleString()} training referrals`);tr.onmouseleave=hideTip;ho.onmousemove=e=>showTip(e,`<b>${s}</b> held out: ${W[s][1]}`);ho.onmouseleave=hideTip});
+  const R=D.snapshots.runs;document.getElementById("snap-runs").innerHTML=R.map(r=>`<span class="${r.done?"done":""}" title="${r.name}">${r.snapshot.slice(1)}${r.model==="GNN"?"G":"N"}</span>`).join("");
+  const n=R.filter(r=>r.done).length;document.getElementById("snap-status").innerHTML=`<b>${n} of ${R.length} runs done</b> (G = GNN, N = no message passing; numbers = snapshot year). Results compare snapshots once all runs and the per-snapshot measures are in.`;
+}
+
+/* ---------- slide 6b: splits ---------- */
+state.splitMetric = "load";
+function renderSplits(){
+  toggle("split-metric","splitMetric",[["load","Load (top pick), points"],["mips","Quality: MIPS gain"]]);
+  document.getElementById("split-legend").innerHTML=`<span><i style="background:${state.splitMetric==="load"?"#eb6834":"#2a78d6"};border-radius:50%"></i>${state.splitMetric==="load"?"graph clearly lower load (interval below 0)":"graph clearly higher MIPS gain (interval above 0)"}</span><span><i style="background:#8a8984;border-radius:50%"></i>interval crosses 0</span><span><i style="background:#fff;border:2px solid #b0aec0;border-radius:50%"></i>hollow: fewer than 100 patients (not judged)</span><span><i style="background:#8a8984;height:3px;width:20px;vertical-align:3px"></i>line = 95% interval</span>`;
+  const R=D.splits, k=state.splitMetric, ci=k+"_ci", dk=k+"_d", fmt=k==="load"?(v=>(v>=0?"+":"")+(100*v).toFixed(1)):(v=>(v>=0?"+":"")+v.toFixed(1));
+  const {svg,w,h}=frame("split-chart");const m={l:250,r:60,t:6,b:30};const ext=Math.max(...R.map(r=>Math.max(Math.abs(r[ci][0]),Math.abs(r[ci][1]))))*1.05;const x=scale(-ext,ext,m.l,w-m.r);const rh=(h-m.t-m.b)/R.length;
+  el("line",{x1:x(0),x2:x(0),y1:m.t,y2:h-m.b,stroke:C.ink2},svg);
+  ticks(-ext,ext,6).forEach(v=>txt(svg,x(v),h-m.b+16,fmt(v),{"text-anchor":"middle","font-size":11}));
+  txt(svg,(m.l+w-m.r)/2,h-2,k==="load"?"graph − table, load: share of top picks on the busiest 10% (points; left = graph spreads load more)":"graph − table, MIPS gain (points; right = graph better)",{"text-anchor":"middle",fill:C.ink,"font-size":11});
+  let prev=null;R.forEach((r,i)=>{const y=m.t+i*rh+rh/2;if(r.split!==prev){txt(svg,8,y+4,r.split,{fill:C.ink,"font-size":12,"font-weight":600});prev=r.split}
+    txt(svg,m.l-8,y+4,r.stratum,{"text-anchor":"end","font-size":11});
+    const good=k==="load"?r[ci][1]<0:r[ci][0]>0, col=r.small?"#b0aec0":(good?(k==="load"?"#eb6834":"#2a78d6"):"#8a8984");
+    el("line",{x1:x(r[ci][0]),x2:x(r[ci][1]),y1:y,y2:y,stroke:col,"stroke-width":2.5,"stroke-linecap":"round"},svg);
+    const c=el("circle",{cx:x(r[dk]),cy:y,r:5,fill:r.small?"#fff":col,stroke:col,"stroke-width":2},svg);
+    c.onmousemove=e=>showTip(e,`<b>${r.split}: ${r.stratum}</b><br>${r.n.toLocaleString()} referrals, ${r.patients.toLocaleString()} patients, ${r.pcps} PCPs<br>Load (top pick): graph ${pct(r.load_gnn)}, table ${pct(r.load_table)}, actual ${pct(r.load_actual)}<br>MIPS gain: graph ${f1(r.mips_gnn)}, table ${f1(r.mips_table)}<br>Fit: graph ${pct(r.fit_gnn)}, table ${pct(r.fit_table)}`);c.onmouseleave=hideTip});
+  const E=D.exposure;document.getElementById("exposure").innerHTML=E.length?`<table style="font-size:13px"><tr><th>Share of top-5</th><th>avail.</th><th>actual</th><th>graph</th><th>table</th></tr>`+
+    E.map(e=>`<tr><td>${e.group.replace(" specialists","").replace(" (≤6 Medicare years)"," (≤6 y)").replace(" (<10 referrals received)"," (<10 refs)")}</td><td>${pct(e.available)}</td><td>${pct(e.actual)}</td><td>${pct(e.gnn)}</td><td>${pct(e.table)}</td></tr>`).join("")+"</table>":"";
+}
+function renderNC(){
+  const N=D.newconn,T=N.table_only_new,G=N.graph_instead;
+  const R=[["MIPS","MIPS (scored)",v=>v.toFixed(1)],["Distance from patient (median)","distance mi",mi],["Among the busiest 10%","busiest 10%",pct],["Has treated this condition before","treated this disease category before",pct],["Has seen this insurer before","seen this insurer before",pct]];
+  document.getElementById("nc-table").innerHTML=`<tr><th></th><th>Table’s extra new picks</th><th>Graph model’s picks instead</th></tr>`+R.map(([l,k,fm])=>`<tr><td>${l}</td><td>${fm(T[k])}</td><td>${fm(G[k])}</td></tr>`).join("")+
+    `<tr><td>New to the PCP, all top-5 slots</td><td>${pct(N.new_share.table)}</td><td>${pct(N.new_share.graph)}</td></tr><tr><td>“Good” new picks (higher MIPS, not busiest)</td><td>${pct(N.good_new.table)}</td><td>${pct(N.good_new.graph)}</td></tr>`;
+  document.getElementById("nc-note").textContent=`${N.referrals.toLocaleString()} of ${N.of.toLocaleString()} referrals have at least one such pick; ${pct(N.graph_instead_familiar)} of the graph model’s alternative picks are specialists the PCP already uses. Load among familiar picks (share on the busiest 10%): table ${pct(N.familiar_busy.table)}, graph ${pct(N.familiar_busy.graph)}.`;
+  document.getElementById("mi-tab").textContent=D.mips_importance.table!=null?pct(D.mips_importance.table):"≈2%";
+}
+function renderArch(){
+  const A=D.arch.arms, b=D.arch.band; const cols=[["fit","Fit",pct],["quality","Quality (MIPS)",f1],["travel_median","Travel",mi],["load","Load (top pick)",pct],["new","New to PCP",pct]];
+  const dcol={fit:"d_fit",quality:"d_quality",load:"d_load",new:"d_new"};
+  document.getElementById("arch-table").innerHTML="<tr><th></th>"+cols.map(c=>`<th>${c[1]}</th>`).join("")+"</tr>"+A.map(r=>"<tr><td>"+r.arm+"</td>"+cols.map(([k,_,fm])=>{let cell=fm(r[k]);const dk=dcol[k];
+    if(r[dk]!=null&&r.arm!=="GNN (current)"){const ci=r[dk+"_ci"],sig=(ci[0]>0||ci[1]<0)&&Math.abs(r[dk])>(b[k]||0);const dv=k==="quality"?f1(r[dk]):((r[dk]>=0?"+":"")+(100*r[dk]).toFixed(1));cell+=` <span class="mini" style="${sig?"font-weight:700;color:#1b1b1f":""}">(${dv})</span>`}return `<td>${cell}</td>`}).join("")+"</tr>").join("");
+}
+/* ---------- network over time (canvas) ---------- */
+state.nvYear = 2016; state.nvView = "sample"; let nvTimer = null;
+function renderNV(){
+  const box=document.getElementById("nv-box"), cv=document.getElementById("nv-canvas"); if(!box.clientWidth) return;
+  const W=box.clientWidth, H=box.clientHeight, dpr=window.devicePixelRatio||1; cv.width=W*dpr; cv.height=H*dpr; cv.style.width=W+"px"; cv.style.height=H+"px";
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  toggle("nv-view","nvView",[["sample","Sample: 5 PCPs"],["overview","Overview: top 600"]]);
+  const V=state.nvView==="sample"?NV.sample:NV, Y=V.years[String(state.nvYear)], pad=18, X=n=>pad+n.x*(W-2*pad), Yp=n=>pad+n.y*(H-2*pad), N=V.nodes, SAMPLE=state.nvView==="sample";
+  document.getElementById("nv-sub").textContent=SAMPLE?"Five PCPs (a random draw among steady PCPs) and each one’s top-10 specialists per year. Positions fixed; press Play":
+    `${NV.n_pcp} PCPs and the ${NV.n_spec} most-referred specialists; a connection = at least 2 referrals that year (January–October). Positions fixed; press Play`;
+  ctx.setLineDash([3,3]); ctx.strokeStyle="rgba(169,163,194,0.45)"; ctx.lineWidth=0.6;
+  Y.dropped.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(X(N[a]),Yp(N[a]));ctx.lineTo(X(N[b]),Yp(N[b]));ctx.stroke()}); ctx.setLineDash([]);
+  [[1,"rgba(154,160,173,0.45)"],[0,"rgba(235,104,52,0.75)"]].forEach(([st,col])=>{ctx.strokeStyle=col;
+    Y.edges.forEach(([a,b,w,c])=>{if(c!==st)return;ctx.lineWidth=SAMPLE?Math.min(4,1+0.35*Math.sqrt(w)):Math.min(2.4,0.5+0.25*Math.sqrt(w));ctx.beginPath();ctx.moveTo(X(N[a]),Yp(N[a]));ctx.lineTo(X(N[b]),Yp(N[b]));ctx.stroke()})});
+  const busy=new Set(Y.busy.map(i=>i+V.n_pcp)), used=new Set(Y.edges.map(e=>e[1]));
+  N.forEach((n,i)=>{const sz=Y.size[i]; if(!sz&&!SAMPLE) return; const idle=SAMPLE&&n.t==="s"&&!used.has(i);
+    const r=n.t==="p"?(SAMPLE?11:Math.min(6,2+0.25*Math.sqrt(sz))):(SAMPLE?(idle?3:Math.min(10,3+0.35*Math.sqrt(sz))):Math.min(9,1.5+0.45*Math.sqrt(sz)));
+    ctx.beginPath();ctx.arc(X(n),Yp(n),r,0,2*Math.PI);ctx.fillStyle=n.t==="p"?"#1d2b53":(idle?"rgba(201,200,211,0.35)":"#c9c8d3");ctx.fill();
+    if(idle) return;
+    if(busy.has(i)){ctx.lineWidth=1.6;ctx.strokeStyle="#eb6834";ctx.stroke()}});
+  document.getElementById("nv-label").textContent=state.nvYear; document.getElementById("nv-year").value=state.nvYear;
+  const Wh=NV.years[String(state.nvYear)]; document.getElementById("nv-new").textContent=(100*Wh.all_new_share).toFixed(0)+"%";
+  document.getElementById("nv-new-d").textContent=Wh.all_connections.toLocaleString()+" PCP–specialist connections in the whole network; drawn here: "+(100*Y.drawn_new_share).toFixed(0)+"% new"+(SAMPLE?" (each PCP’s top 10)":"");
+  const tr=NV.transitions.find(t=>t.to===state.nvYear); document.getElementById("nv-rec").textContent=tr?(100*tr.panel_edge_jaccard).toFixed(0)+"%":"—";
+  const yr=NV.yearly.find(t=>t.year===state.nvYear); document.getElementById("nv-busy").textContent=yr?(100*yr.median_busiest10_share).toFixed(0)+"%":"—";
+}
+document.getElementById("nv-year").oninput=e=>{state.nvYear=+e.target.value;renderNV()};
+document.getElementById("nv-play").onclick=()=>{if(nvTimer){clearInterval(nvTimer);nvTimer=null;document.getElementById("nv-play").textContent="▶ Play";return}
+  document.getElementById("nv-play").textContent="❚❚ Pause"; nvTimer=setInterval(()=>{state.nvYear=state.nvYear>=2019?2016:state.nvYear+1;renderNV()},1600)};
+function renderAll(){renderNV();renderNC();renderSplits();renderBase();renderLadder();renderImp();renderNet();renderDS();renderSnap()}
+fit();go((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>

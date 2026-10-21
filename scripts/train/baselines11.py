@@ -43,7 +43,7 @@ args = ap.parse_args()
 root = str(workspace()); os.chdir(root)
 inputs_path = os.path.join(root, args.inputs)
 mi = load_three_node_inputs(inputs_path)
-INPUTS_SHA = sha256_file(inputs_path); CODE_SHA = code_hash(os.path.join(root, "referral_gnn"))
+INPUTS_SHA = sha256_file(inputs_path); CODE_SHA = code_hash(str(code_file("referral_gnn")))  # the repository library, not the data workspace
 sel = np.sort(mi.validation_sample)
 fo_sel = sel[mi.ps_asof.lookup(mi.enc_patient[sel] * mi.n_specialist + mi.enc_target[sel], mi.enc_day[sel]) < 0]
 print(f"selection subset {len(sel):,} queries; first-time {len(fo_sel):,}", flush=True)

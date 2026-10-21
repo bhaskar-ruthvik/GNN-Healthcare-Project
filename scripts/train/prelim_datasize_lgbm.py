@@ -49,7 +49,7 @@ for v in args.variants:
         man = {"kind": "lgbm", "arm": f"lgbm_{v}_{tag}", "step": "11.4-prelim", "preliminary": True, "train_end": args.train_end,
                "n_train_queries": int(len(X) // 21), "seed": seed, "params": p0, "params_source": "full-period selection (no re-tuning)",
                "feature_set": v, "feature_names": fb.names, "inputs_path": inputs_path, "inputs_sha256": sha256_file(inputs_path),
-               "code_sha256": code_hash(os.path.join(root, "referral_gnn")), "train_config": {"graph_bucket": "week"}, "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
+               "code_sha256": code_hash(str(code_file("referral_gnn"))), "train_config": {"graph_bucket": "week"}, "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
         json.dump(man, open(os.path.join(run_dir, "run_manifest.json"), "w"), indent=1)
         json.dump({"preliminary": True}, open(os.path.join(run_dir, "summary.json"), "w"))
         print(f"  wrote {os.path.relpath(run_dir, root)} ({time.time() - t0:.0f}s)", flush=True)

@@ -35,6 +35,8 @@ def _blocks_with_demographics(mi, mcfg=None):
     b = dict(mi.encounter_blocks)
     if hasattr(mi, "demographic_cat_cols"):
         b["demographic_cat_cols"] = list(mi.demographic_cat_cols); b["demographic_flag_cols"] = list(mi.demographic_flag_cols)
+    if mcfg is not None and getattr(mcfg, "pcp_in_scorer", False):               # STEP13 NG+P
+        b["enc_pcp"] = np.asarray(mi.enc_pcp, np.int64)
     if mcfg is not None and getattr(mcfg, "volume_mode", "keep") != "keep":       # STEP12a H5 / B2
         from .volume import stats
         b["volume_stats"] = stats(mi)

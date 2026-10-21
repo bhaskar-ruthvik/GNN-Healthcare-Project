@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral Graph — Week 3 (revised)</title>
+<style>
+/*BASE_STYLE*/
+/* ---- week-3 additions ---- */
+:root{--graph:#2a78d6;--graph-t:#e8f1fc;--table:#4a3aa7;--table-t:#ecebf8;--blend:#1baf7a;--blend-t:#e5f6ef;--prac:#8a8984;--load-c:#eb6834}
+.slide[data-accent=graph]{--accent:var(--graph);--tint:var(--graph-t)} .slide[data-accent=table]{--accent:var(--table);--tint:var(--table-t)} .slide[data-accent=blend]{--accent:var(--blend);--tint:var(--blend-t)}
+.card.graph{--c:var(--graph);--ct:var(--graph-t)} .card.table{--c:var(--table);--ct:var(--table-t)} .card.blend{--c:var(--blend);--ct:var(--blend-t)} .card.loadc{--c:var(--load);--ct:var(--load-t)}
+.mini{font-size:14.5px;color:#44464f;line-height:1.45;margin:0 0 8px}
+.mini:last-child{margin-bottom:0}
+.mini b{color:#1b1b1f;font-weight:600}
+.src{position:absolute;left:64px;right:64px;bottom:16px;font-size:10.5px;color:#9a9893;font-family:Menlo,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.def{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.def div{background:#f6f6f4;border-radius:10px;padding:11px 14px;font-size:14px;line-height:1.4;color:#44464f;border-left:5px solid var(--c,#cfcdc7)}
+.def b{display:block;color:#1b1b1f;font-weight:600;font-size:15px;margin-bottom:2px}
+.qa{display:grid;grid-template-columns:1fr;gap:9px}
+.qa .it{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid #e6e4df;border-left:6px solid var(--qc);border-radius:10px;padding:10px 16px}
+.qa .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--qc);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;font-size:14px}
+.qa b{display:block;font-weight:600;font-size:16.5px;margin-bottom:2px}.qa span{font-size:15px;color:#44464f;line-height:1.4}
+.verdict{display:inline-block;border-radius:8px;padding:1px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+.v-no{background:#f0efec;color:#52514e}.v-yes{background:#e5f6ef;color:#0f7a54}.v-contra{background:#fdeee7;color:#b8471c}
+table.t{font-size:13.5px}table.t th,table.t td{padding:5px 8px}table.t th{font-size:12.5px}
+td.good{background:#e5f6ef}td.bad{background:#fdeee7}
+tr.ref td{color:#1b1b1f;font-weight:600;background:#faf9f7}
+.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:#44464f;margin-top:6px;align-items:center}
+.lg i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.lg i.sq{border-radius:2px}.lg i.ln{height:3px;width:18px;border-radius:2px;vertical-align:3px}.lg i.ci{height:3px;width:22px;border-radius:2px;vertical-align:3px}
+.ok{color:#0f7a54;font-weight:700}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;flex:1;min-height:0}
+.step{background:#f6f6f4;border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.step .sq{font-size:13px;font-weight:600;color:#8a8984;text-transform:uppercase;letter-spacing:.4px}
+.step h3{margin:0;font-size:19px;font-weight:600;line-height:1.25}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bars .lb{font-size:13px;color:#44464f;margin-bottom:3px}
+.bars .tr{display:flex;align-items:center;gap:8px}.bars .b{height:24px;border-radius:6px}.bars .v{font-size:15px;font-weight:600}
+.step .ans{font-size:15px;line-height:1.4;color:#1b1b1f;margin-top:auto}
+.step .ans b{font-weight:700}.nok{color:#b8471c;font-weight:700}
+</style>
+</head>
+<body>
+<div id="stage"><div class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide title">
+  <h1 class="big" style="margin-top:120px">Can the graph model and the table work together?</h1>
+  <p class="sub" style="font-size:22px">Group exceptions, longer lists, why the graph model eases congestion, and hybrids of the two</p>
+  <div class="chips"><span style="background:var(--graph)">Graph</span><span style="background:var(--table)">Table</span><span style="background:var(--blend)">Blend</span></div>
+  <p class="sub" style="margin-top:22px">Bhaskar Ruthvik Bikkina · /*DATE*/</p>
+  <p class="note">Use ← → or the buttons below. Charts are interactive: hover for details, click the toggles. Every number is read from the result files named at the bottom of each slide. Code: <a href="https://github.com/bhaskar-ruthvik/GNN-Healthcare-Project" style="color:inherit">github.com/bhaskar-ruthvik/GNN-Healthcare-Project</a>.</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Since 9 October</span>
+  <h1>Five questions from the last meeting</h1>
+  <p class="sub">What we asked, and the short answer. Each has its own slide.</p>
+  <div class="qa" id="qa"></div>
+  <p class="note" id="qa-note"></p>
+</section>
+
+<!-- 4 -->
+<section class="slide" data-accent="load">
+  <span class="tag">1 · Group exceptions</span>
+  <h1>The 85+ exception was not real</h1>
+  <p class="sub">Load = share of top picks going to the busiest 10% of specialists; 2018, 30% quality weight</p>
+  <div class="controls" id="grp-view"></div>
+  <div class="chart" id="grp-chart"></div><div class="lg" id="grp-legend"></div>
+  <p class="mini" id="grp-take" style="margin-top:8px"></p>
+  <div class="src" id="grp-src"></div>
+</section>
+
+<!-- 5 -->
+<section class="slide" data-accent="fit">
+  <span class="tag">2 · Longer lists</span>
+  <h1>With 10–15 names the two models converge, except on new connections</h1>
+  <p class="sub">2018, 30% quality weight; graph model and table each averaged over 2 seeds; same 5,550 referrals at every list length</p>
+  <div class="controls" id="tk-metric"></div>
+  <div class="row"><div class="col"><div class="chart" id="tk-chart"></div><div class="lg" id="tk-legend"></div></div>
+    <div class="col" style="flex:0 0 360px;gap:10px"><div id="tk-table"></div><div class="panel" style="--tint:var(--fit-t)"><p class="mini" id="tk-read"></p></div></div></div>
+  <div class="src">Source: runs/analysis/step12_topk/topk_summary.json (scripts/analysis/step12/step12_topk_summary.py; K = 5 reproduces the 9 Oct per-referral results exactly)</div>
+</section>
+
+<!-- 6 -->
+<section class="slide" data-accent="load">
+  <span class="tag">3 · Why the graph model eases congestion</span>
+  <h1>It is not the graph, and not PCP history</h1>
+  <p class="sub">Share of top picks going to the busiest 10% of specialists. Steps 2 and 3 compare at equal fit (step 1’s two models already fit about the same), so neither side is just less accurate.</p>
+  <div class="steps" id="mech-steps"></div>
+  <div class="panel" style="--tint:var(--load-t);margin-top:14px"><p class="mini" id="mech-read"></p></div>
+  <div class="src">Source: runs/analysis/step12a/final_summary.json, runs/analysis/step12a_decisions.json (pre-registered tests, scripts/analysis/step12/step12_congestion.py)</div>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-accent="table">
+  <span class="tag">4 · Simple hybrids</span>
+  <h1>Simple combinations end up close to one of the two models</h1>
+  <p class="sub">2018, 30% quality weight; averaged over 2 seed pairings. Pre-stated test: GNN’s load (top pick and top 5) and quality, plus ≥ 5 points more new connections</p>
+  <table class="t" id="hyb-table" style="font-size:14px"></table><div class="lg" id="hyb-legend"></div>
+  <div class="src">Source: runs/analysis/step12b/judge_summary.json (scripts/analysis/step12/step12b_judge.py; plan Implementation/STEP12B_HYBRID_PLAN.md, judging revision 1)</div>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">5 · Can the two be leveraged?</span>
+  <h1>The two models disagree in useful ways</h1>
+  <p class="sub">2018, 30% quality weight; three seed pairings (ranges show min–max across them)</p>
+  <div class="row"><div class="col" style="gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px" id="comp-cards"></div>
+      <table class="t" id="comp-table"></table>
+      <p class="note" style="margin-top:0">“Picks only one model makes”: specialists in one model’s top 5 but not the other’s, same referrals. MIPS = the specialist’s MIPS score (0–100).</p></div>
+    <div class="col" style="flex:0 0 360px;gap:10px"><div class="panel" style="--tint:var(--blend-t)"><p class="mini" id="comp-read"></p></div>
+      <div class="panel" style="--tint:#f2f1f6"><p class="mini" id="steer-def"></p></div></div></div>
+  <div class="src">Source: runs/analysis/step12c/complementarity.json, runs/analysis/step12c/frontier_points_pair{0,1,2}.csv (scripts/analysis/step12/step12c_complementarity.py, step12c_frontiers.py)</div>
+</section>
+
+<!-- 9 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">5 · Steering the blend</span>
+  <h1>Steered, the blend beats both models on load and new connections</h1>
+  <p class="sub">Every steering setting that keeps fit ≥ 45% (2018); each family’s best trade-offs joined by a line. Down and right is better.</p>
+  <div class="controls" id="fr-pair"></div>
+  <div class="row"><div class="col"><div class="chart" id="fr-chart"></div><div class="lg" id="fr-legend"></div></div>
+    <div class="col" style="flex:0 0 340px;gap:10px"><div class="panel" style="--tint:var(--blend-t)"><p class="mini" id="fr-read"></p></div></div></div>
+  <div class="src">Source: runs/analysis/step12c/frontier_points_pair{0,1,2}.csv, runs/analysis/step12c/frontiers.json (scripts/analysis/step12/step12c_frontiers.py)</div>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">5 · Held-out year</span>
+  <h1>The steered blend holds on 2019</h1>
+  <p class="sub" id="y19-sub"></p>
+  <div class="row"><div class="col"><table class="t" id="y19-table"></table><p class="note" style="margin-top:8px">Mean of the three seed pairings; hover a cell for the per-pairing values. Ticks: the pre-stated 2019 criterion for that row held in every pairing. The graph and table values here average 3 runs each (a repeat seed-42 graph run and a seed-7 table run were added in Step 12c), so they differ slightly from the 2-run averages on slides 4–6.</p></div>
+    <div class="col" style="flex:0 0 360px;gap:10px"><div class="panel" style="--tint:var(--blend-t)"><p class="mini" id="y19-read"></p></div><div class="panel" style="--tint:#fdf3e1"><p class="mini" id="y19-cav"></p></div></div></div>
+  <div class="src">Source: runs/analysis/step12c/point_lenses_validation.json, point_lenses_test2019.json, preregistration_2019.json (recorded before the 2019 pass)</div>
+</section>
+
+<!-- 11 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">6 · Heavier hybrids</span>
+  <h1>Hybrids trained together do not beat the steered blend</h1>
+  <p class="sub">Same steering and fit ≥ 45% as before (2018). Table-offset GNN, dual encoder and stacked LightGBM, 3 seeds each</p>
+  <div class="controls" id="hv-pair"></div>
+  <div class="row"><div class="col"><div class="chart" id="hv-chart"></div><div class="lg" id="hv-legend"></div></div>
+    <div class="col" style="flex:0 0 380px;gap:10px"><div id="hv-table"></div><div class="panel" style="--tint:var(--blend-t)"><p class="mini" id="hv-read"></p></div></div></div>
+  <div class="src">Source: runs/analysis/step12d/frontier.json, frontier_points_pair{0,1,2}.csv, heavy_descriptives.json (scripts/analysis/step12/step12d_frontier.py, step12d_descriptives.py)</div>
+</section>
+
+<!-- 12 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">7 · Checks on the steered blend</span>
+  <h1>The steered blend lowers load in every group</h1>
+  <p class="sub">Steered blend − graph model, by group; 2018, averaged over 3 seed pairings; PCP-cluster 95% intervals</p>
+  <div class="controls" id="bc-metric"></div>
+  <div class="row"><div class="col"><div class="chart" id="bc-chart"></div><div class="lg" id="bc-legend"></div></div>
+    <div class="col" style="flex:0 0 410px;gap:6px"><div class="panel" style="--tint:var(--blend-t);padding:10px 14px"><p class="mini" id="bc-read"></p></div><div class="chart" id="bc-tier" style="flex:0 0 132px"></div><div class="lg" id="bc-tier-legend" style="margin-top:0"></div><div id="bc-exp"></div></div></div>
+  <div class="src">Source: runs/analysis/step12c/blend_checks.json (scripts/analysis/step12/step12c_blend_checks.py)</div>
+</section>
+
+<!-- 13 -->
+<section class="slide" data-accent="mix">
+  <span class="tag">Discussion</span>
+  <h1>What we learned, and decisions for you</h1>
+  <p class="sub">The steered blend is the best combination we found; the choices below decide what comes next</p>
+  <div class="row"><div class="col" style="flex:0 0 470px;gap:10px" id="take"></div>
+    <div class="col" style="gap:0" id="asks"></div></div>
+</section>
+
+</div></div>
+<div id="tip"></div>
+<div class="nav"><button id="prev">‹</button><div class="dots" id="dots"></div><span id="count"></span><button id="next">›</button></div>
+
+<script>
+const D = /*DATA*/null;
+const C = {graph:"#2a78d6",table:"#4a3aa7",blend:"#1baf7a",prac:"#8a8984",load:"#eb6834",offset:"#d08a00",dual:"#e34948",stack:"#8a5a2b",ink:"#1b1b1f",ink2:"#52514e",grid:"#e6e6e3",light:"#c9c8d3",grey:"#8a8984"};
+const sgn=(x,d)=>{const s=Math.abs(x).toFixed(d);return +s===0?(0).toFixed(d):(x>0?"+":"−")+s};
+const pct=v=>(v==null?"—":(100*v).toFixed(1)+"%"), pt=v=>(v==null?"—":sgn(100*v,1)), f1=v=>(v==null?"—":sgn(v,1)), f2=v=>(v==null?"—":sgn(v,2)), mi=v=>(v==null?"—":v.toFixed(1)+" mi");
+const ptci=c=>`[${pt(c[0])}, ${pt(c[1])}]`, f1ci=c=>`[${f1(c[0])}, ${f1(c[1])}]`;
+const rng=(a,fm)=>{const lo=Math.min(...a),hi=Math.max(...a);return fm(lo)===fm(hi)?fm(lo):`${fm(lo)}–${fm(hi)}`};
+const p0=v=>(100*v).toFixed(0)+"%", p1=v=>(100*v).toFixed(1), mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+
+/* ---------- navigation & scaling ---------- */
+const slides=[...document.querySelectorAll(".slide")]; let cur=0;
+const dots=document.getElementById("dots");
+slides.forEach((_,i)=>{const s=document.createElement("span");s.onclick=()=>go(i);dots.appendChild(s)});
+function go(i){cur=Math.max(0,Math.min(slides.length-1,i));slides.forEach((s,j)=>s.classList.toggle("active",j===cur));[...dots.children].forEach((d,j)=>d.classList.toggle("on",j===cur));document.getElementById("count").textContent=(cur+1)+" / "+slides.length;try{history.replaceState(null,"","#"+(cur+1))}catch(e){};renderAll()}
+document.getElementById("prev").onclick=()=>go(cur-1);document.getElementById("next").onclick=()=>go(cur+1);
+addEventListener("keydown",e=>{if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){go(cur+1);e.preventDefault()}if(e.key==="ArrowLeft"||e.key==="PageUp")go(cur-1)});
+function fit(){const s=Math.min(innerWidth/1280,(innerHeight-60)/720);document.getElementById("deck").style.transform=`scale(${s})`}
+addEventListener("resize",()=>{fit();renderAll()});
+addEventListener("hashchange",()=>{const n=(parseInt(location.hash.slice(1))||1)-1;if(n!==cur)go(n)});
+
+/* ---------- tooltip, toggles, svg helpers ---------- */
+const tip=document.getElementById("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.display="block";const x=e.clientX+14,y=e.clientY+14;tip.style.left=Math.min(x,innerWidth-tip.offsetWidth-10)+"px";tip.style.top=Math.min(y,innerHeight-tip.offsetHeight-10)+"px"}
+function hideTip(){tip.style.display="none"}
+const state={grpView:"w2",tk:"load_slots",fr:0,hv:0,bc:"busy1"};
+function toggle(id,key,opts){const el_=document.getElementById(id);el_.innerHTML="";opts.forEach(([v,l])=>{const b=document.createElement("button");b.className="btn"+(state[key]===v?" on":"");b.textContent=l;b.onclick=()=>{state[key]=v;renderAll()};el_.appendChild(b)})}
+const NS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function txt(parent,x,y,s,attrs={}){const t=el("text",Object.assign({x,y,fill:C.ink2,"font-size":12},attrs),parent);t.textContent=s;return t}
+function frame(id){const box=document.getElementById(id);box.innerHTML="";const w=box.clientWidth||600,h=box.clientHeight||360;const svg=el("svg",{width:w,height:h,viewBox:`0 0 ${w} ${h}`,style:"position:absolute;left:0;top:0;overflow:visible"},box);return {svg,w,h}}
+function scale(d0,d1,r0,r1){return v=>r0+(v-d0)/(d1-d0)*(r1-r0)}
+function ticks(a,b,n=5){const step=Math.pow(10,Math.floor(Math.log10((b-a)/n)));const m=[1,2,2.5,5,10].find(m=>(b-a)/(step*m)<=n)||10;const s=step*m;const out=[];for(let v=Math.ceil(a/s)*s;v<=b+1e-9;v+=s)out.push(+v.toFixed(6));return out}
+const html=(id,s)=>{document.getElementById(id).innerHTML=s};
+const legend=(id,items)=>html(id,items.map(([kind,col,l,extra])=>`<span><i class="${kind}" style="background:${col};${extra||""}"></i>${l}</span>`).join(""));
+
+/* forest plot: rows [{label, head, est, ci, small, tipHtml}], colour rule given */
+function forest(id,rows,{fmt,axis,colour,labelW=230,right=null}){
+  const {svg,w,h}=frame(id);const m={l:labelW,r:right?70:24,t:6,b:34};const ext=Math.max(...rows.map(r=>Math.max(Math.abs(r.ci[0]),Math.abs(r.ci[1]),Math.abs(r.est))))*1.08;
+  const x=scale(-ext,ext,m.l,w-m.r);const rh=(h-m.t-m.b)/rows.length;
+  ticks(-ext,ext,6).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+15,fmt(v),{"text-anchor":"middle","font-size":11})});
+  el("line",{x1:x(0),x2:x(0),y1:m.t,y2:h-m.b,stroke:C.ink2,"stroke-width":1.2},svg);
+  txt(svg,(m.l+w-m.r)/2,h-3,axis,{"text-anchor":"middle",fill:C.ink,"font-size":11.5});
+  if(right)txt(svg,w-4,m.t+9,right.head,{"text-anchor":"end","font-size":10.5,fill:C.ink});
+  let prev=null;rows.forEach((r,i)=>{const y=m.t+i*rh+rh/2+(right?6:0);
+    if(r.head!==prev){txt(svg,4,y+4,r.head,{fill:C.ink,"font-size":12,"font-weight":600});prev=r.head}
+    txt(svg,m.l-8,y+4,r.label,{"text-anchor":"end","font-size":11.5});
+    const col=colour(r);
+    el("line",{x1:x(r.ci[0]),x2:x(r.ci[1]),y1:y,y2:y,stroke:col,"stroke-width":2.5,"stroke-linecap":"round"},svg);
+    const c=el("circle",{cx:x(r.est),cy:y,r:5.5,fill:r.small?"#fff":col,stroke:col,"stroke-width":2},svg);
+    if(right)txt(svg,w-4,y+4,right.val(r),{"text-anchor":"end","font-size":11});
+    const hit=el("rect",{x:m.l,y:y-rh/2,width:w-m.l-m.r,height:rh,fill:"transparent"},svg);
+    [c,hit].forEach(t=>{t.onmousemove=e=>showTip(e,r.tip);t.onmouseleave=hideTip})});
+}
+
+/* ---------- slide 2: questions ---------- */
+function renderQA(){
+  const G=D.groups, tk=D.topk, me=D.mech, b19=D.blend.y2019;
+  const holm=Math.min(...G.did.map(r=>r.p_holm));
+  const sl=tk.diff.load_slots, nw=tk.diff.new;
+  const qs=[["var(--load)","Are the 85+ and early-tenure-PCP exceptions real?",`No. Neither group differs from the rest once we allow for testing seven groups (smallest adjusted p = ${holm.toFixed(2)}). The 85+ cell is small and clustered; early-tenure PCPs are the low end of a weak PCP-history trend.`],
+    ["var(--fit)","Do the differences hold for top 10 and top 15?",`Fit stays level. The graph model’s load edge on list slots shrinks from ${pt(sl[0].est)} to ${pt(sl[2].est)} points; the table keeps ${rng(nw.map(d=>-d.est),p1)} points more new connections.`],
+    ["var(--load)","Why does the graph model ease congestion with no objective for it?",`Not message passing and not PCP history: neural models put fewer top picks on the busiest specialists than tree models at the same fit. No single factor we tested explains why.`],
+    ["var(--table)","Do simple hybrids combine the strengths?",`No. Score blends, a gate, rank fusion, the GNN-encoding + logistic regression model and the flattened graph each end up near one parent.`],
+    ["var(--blend)","Can the two models be leveraged together?",`Yes: an equal blend steered toward new, less busy specialists cuts top-pick load to ${rng(b19.map(p=>p["Steered blend"].busy1),p0)} on 2019 (graph ${rng(b19.map(p=>p.GNN.busy1),p0)}) with the table’s newness. Heavier trained hybrids do not beat it.`]];
+  html("qa-note",`Unless stated: ${D.blend.n2018.toLocaleString()} first-time referrals in 2018, ranked with a 30% weight on MIPS. <b>Load</b> = share of top picks going to the busiest 10% of specialists (actual choices ${pct(D.topk.practice.load_top1)}). <b>Fit</b> = the PCP’s chosen specialist is in the top 5. <b>New</b> = share of the top 5 the PCP has never used. Intervals are 95% and resample whole PCPs.`);
+  html("qa",qs.map(([c,q,a],i)=>`<div class="it" style="--qc:${c}"><span class="n">${i+1}</span><div><b>${q}</b><span>${a}</span></div></div>`).join(""));
+}
+/* ---------- slide 4: groups — the 9 Oct chart, and load by age ---------- */
+function renderGroups(){
+  toggle("grp-view","grpView",[["w2","Graph − table by group (9 Oct chart)"],["age","Load by patient age"]]);
+  const G=D.groups, a=G.age, o=G.did.find(r=>r.group==="85+"), ages=["<65","65–74","75–84","85+"];
+  if(state.grpView==="w2"){
+    const rows=G.w2.rows.map(r=>({head:r.split,label:r.stratum,est:r.d,ci:r.ci,small:r.small,
+      tip:`<b>${r.split}: ${r.stratum}</b><br>${r.n.toLocaleString()} referrals, ${r.patients.toLocaleString()} patients, ${r.pcps} PCPs<br>Load: graph ${pct(r.gnn)}, table ${pct(r.table)}, actual ${pct(r.actual)}<br>Graph − table ${pt(r.d)} ${ptci(r.ci)} points`}));
+    forest("grp-chart",rows,{fmt:v=>pt(v),axis:"Graph − table, load (points; left = graph spreads load more)",labelW:260,colour:r=>r.small?"#b0aec0":r.ci[1]<0?C.load:C.grey});
+    legend("grp-legend",[["",C.load,"graph clearly lower load (interval below 0)"],["",C.grey,"interval crosses 0"],["","#fff","hollow: < 100 patients (not judged)","border:2px solid #b0aec0"],["ci",C.grey,"line = 95% interval"]]);
+    html("grp-src",`Source: ${G.w2.src} (the 9 Oct deck’s chart, unchanged)`);
+  }else{
+    const {svg,w,h}=frame("grp-chart");const m={l:60,r:40,t:20,b:40};const x=i=>m.l+40+i*(w-m.l-m.r-80)/(ages.length-1),y=scale(0.2,0.52,h-m.b,m.t);
+    ticks(0.2,0.52,6).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,p0(v),{"text-anchor":"end","font-size":11})});
+    ages.forEach((k,i)=>{txt(svg,x(i),h-m.b+18,k,{"text-anchor":"middle","font-size":13,fill:C.ink})});
+    txt(svg,(m.l+w-m.r)/2,h-4,"Patient age",{"text-anchor":"middle","font-size":12,fill:C.ink});
+    txt(svg,14,(m.t+h-m.b)/2,"Load: top picks on the busiest 10%",{transform:`rotate(-90 14 ${(m.t+h-m.b)/2})`,"text-anchor":"middle","font-size":12,fill:C.ink});
+    [["table",C.table,"Table",-12],["gnn",C.graph,"Graph model",20]].forEach(([k,c,n,dy])=>{
+      el("polyline",{points:ages.map((g,i)=>`${x(i)},${y(a[g][k])}`).join(" "),fill:"none",stroke:c,"stroke-width":3},svg);
+      ages.forEach((g,i)=>{const cc=el("circle",{cx:x(i),cy:y(a[g][k]),r:6,fill:c},svg);txt(svg,x(i),y(a[g][k])+(g==="85+"?(k==="gnn"?-12:22):dy),pct(a[g][k]),{"text-anchor":"middle","font-size":12.5,"font-weight":600,fill:c});
+        cc.onmousemove=e=>showTip(e,`<b>${n}, patients ${g}</b><br>load ${pct(a[g][k])} · ${a[g].n.toLocaleString()} referrals`);cc.onmouseleave=hideTip})});
+    legend("grp-legend",[["ln",C.graph,"Graph model (GNN)"],["ln",C.table,"Table (LightGBM)"]]);
+    html("grp-src",`Source: ${G.src}`);
+  }
+  html("grp-take",`<b>Takeaway.</b> 85+ is the one group where the graph model is not clearly lower. We checked ${G.did.length} groups (4 patient ages, 3 by PCP years in Medicare); allowing for that, a gap this size appears by luck ${p0(o.p_holm)} of the time. The cause is the table: its load falls with age (${ages.map(k=>p0(a[k].table)).join(" → ")}) while the graph model levels off near ${p0(a["85+"].gnn)}. Only ${o.n} referrals from ${o.pcps} PCPs.`);
+}
+/* ---------- slide 5: top-K ---------- */
+const TK=[["fit","Fit (chosen specialist in the list)",pct,null,"higher = closer to PCP choices"],["load_slots","Load: list slots on the busiest 10%",pct,null,"lower = load spread more"],
+  ["new","New to the PCP",pct,"new","higher = more new connections"],["quality","MIPS gain over the list",v=>f1(v),null,"higher = better quality"],["travel","Mean travel",mi,"travel_mean","lower = shorter trips"]];
+function renderTopK(){
+  toggle("tk-metric","tk",TK.map(t=>[t[0],t[1].split(" (")[0].split(":")[0]]));
+  const T=D.topk, [k,lab,fm,prk,hint]=TK.find(t=>t[0]===state.tk);const g=T.arms.GNN[k],t=T.arms["Table (LightGBM)"][k];const pr=prk?T.practice[prk]:null;
+  const {svg,w,h}=frame("tk-chart");const m={l:62,r:30,t:16,b:40};const vals=[...g,...t,...(pr!=null?[pr]:[])];let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*0.25||0.01;lo-=pad;hi+=pad;
+  const x=scale(5,15,m.l+30,w-m.r-30),y=scale(lo,hi,h-m.b,m.t);
+  ticks(lo,hi,5).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-8,y(v)+4,k==="quality"?f1(v):k==="travel"?v.toFixed(0):p0(v),{"text-anchor":"end","font-size":11})});
+  T.K.forEach(K=>txt(svg,x(K),h-m.b+18,`top ${K}`,{"text-anchor":"middle","font-size":12,fill:C.ink}));
+  txt(svg,14,m.t+(h-m.b-m.t)/2,lab+(k==="travel"?" (miles)":""),{transform:`rotate(-90 14 ${m.t+(h-m.b-m.t)/2})`,"text-anchor":"middle","font-size":11.5,fill:C.ink});
+  if(pr!=null){el("line",{x1:m.l,x2:w-m.r,y1:y(pr),y2:y(pr),stroke:C.prac,"stroke-dasharray":"5 4","stroke-width":1.5},svg);txt(svg,w-m.r,y(pr)-6,`actual choices ${fm(pr)}`,{"text-anchor":"end","font-size":11})}
+  [[g,C.graph,"Graph model"],[t,C.table,"Table"]].forEach(([v,c,n])=>{el("polyline",{points:v.map((d,i)=>`${x(T.K[i])},${y(d)}`).join(" "),fill:"none",stroke:c,"stroke-width":2.5},svg);
+    v.forEach((d,i)=>{const cc=el("circle",{cx:x(T.K[i]),cy:y(d),r:5.5,fill:c},svg);cc.onmousemove=e=>showTip(e,`<b>${n}, top ${T.K[i]}</b><br>${lab}: ${fm(d)}`);cc.onmouseleave=hideTip})});
+  legend("tk-legend",[["",C.graph,"Graph model (GNN)"],["",C.table,"Table (LightGBM)"],...(pr!=null?[["ln",C.prac,"what PCPs actually chose (one specialist)"]]:[])]);
+  const df=T.diff[k], dfm=k==="quality"?(v=>f2(v)):k==="travel"?(v=>f2(v)+" mi"):pt, dci=c=>k==="quality"||k==="travel"?`[${f2(c[0])}, ${f2(c[1])}]`:ptci(c);
+  html("tk-table",`<table class="t"><tr><th>Graph − table</th><th>difference</th><th>95% interval</th></tr>`+T.K.map((K,i)=>`<tr><td>top ${K}</td><td>${dfm(df[i].est)}${k==="travel"||k==="quality"?"":" pts"}</td><td>${dci(df[i].ci)}</td></tr>`).join("")+`</table><p class="note" style="margin-top:4px">${hint}. Lists reach beyond 25 miles for ${T.beyond25.map(p0).join(" / ")} of referrals (top 5 / 10 / 15).</p>`);
+  html("tk-read",`<b>Reading.</b> The graph model’s load and quality edge sits at the top of the list: top-pick load is unchanged by list length (graph ${pct(T.arms.GNN.load_top1[0])}, table ${pct(T.arms["Table (LightGBM)"].load_top1[0])}), but with 10–15 names the slot load and MIPS gain converge. The table keeps more new connections at every length and slightly shorter trips.`);
+}
+/* ---------- slide 6: mechanism (three steps) ---------- */
+function renderMech(){
+  const M=D.mech, g=M.cells.find(c=>c.name==="GNN (current)"), ng=M.cells.find(c=>c.name==="GNN, no message passing"), N=M.N3, dG=M.gate.d_G, h1=M.tests[0];
+  const bars=rows=>`<div class="bars">${rows.map(([l,v,c])=>`<div><div class="lb">${l}</div><div class="tr"><div class="b" style="width:${(v/0.5*78).toFixed(1)}%;background:${c}"></div><span class="v">${pct(v)}</span></div></div>`).join("")}</div>`;
+  const st=[["Step 1","Is it message passing?",bars([["Graph model (GNN)",g.load,C.graph],["Same model without message passing",ng.load,"#7fb1ea"]]),
+      `<b>No.</b> Taking the graph out leaves load the same (fit ${pct(g.fit)} vs ${pct(ng.fit)}).`],
+    ["Step 2","Is it the PCP’s referral history?",bars([["Neural model with no PCP-history inputs",N.load,"#7fb1ea"],["Table, at the same fit",N.load+dG.est,C.table]]),
+      `<b>No.</b> With every history input removed, the neural model is still ${p1(dG.est)} points below the table [${p1(dG.ci[0])}, ${p1(dG.ci[1])}], in all ${dG.seed_pairings.length} seed pairings.`],
+    ["Step 3","Is it the model type?",bars([["Neural model",N.load,"#7fb1ea"],["Tree model (LightGBM), same training objective, same fit",N.load+h1.effect,C.table]]),
+      `<b>Probably, not proven.</b> Trees put ${p1(h1.effect)} more points [${p1(h1.ci[0])}, ${p1(h1.ci[1])}] on the busiest specialists — most of the ${p1(M.R)}-point gap. But that is within the run-to-run variation we set in advance (${p1(M.noise_neural)} points), so it does not count as shown.`]];
+  html("mech-steps",st.map(([n,q,b,a])=>`<div class="step"><span class="sq">${n}</span><h3>${q}</h3>${b}<p class="ans">${a}</p></div>`).join(""));
+  const t=Object.fromEntries(M.tests.map(x=>[x.id,x]));
+  html("mech-read",`<b>No clear effect</b> from the training objective (${pt(t.H2.effect)} points), the specialist volume attributes (${pt(t.H3.effect)}), log-scaled volume (${pt(t.H5.effect)}); bigger trees concentrate <i>less</i>, not more (${pt(t.H4.effect)}). <b>So:</b> the lower load comes with the neural model itself, and no single ingredient we tested explains it. For the hybrids this matters less — steering sets load directly (slides 8–10).`);
+}
+/* ---------- slide 7: simple hybrids ---------- */
+function renderHyb(){
+  const H=D.hyb, g=H.refs.GNN, t=H.refs.Table;
+  const cols=[["r5","Fit",pct,1],["busy1","Load (top pick)",pct,-1],["busy5","Load (top 5)",pct,-1],["new_pcp5","New to PCP",pct,1],["gain5","MIPS gain",v=>f1(v),1],["median_travel_mi","Median travel",mi,null]];
+  const cls=(a,k,dir)=>{const c=a.ci&&a.ci[k];if(!c||dir==null)return "";const better=dir<0?c[1]<0:c[0]>0, worse=dir<0?c[0]>0:c[1]<0;return better?"good":worse?"bad":""};
+  html("hyb-table",`<tr><th></th>${cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr>`+[["Graph model (GNN)",g],["Table (LightGBM)",t]].map(([n,r])=>`<tr class="ref"><td>${n}</td>${cols.map(([k,_,fm])=>`<td>${fm(r[k])}</td>`).join("")}</tr>`).join("")+
+    H.arms.map(a=>`<tr><td>${a.name}</td>${cols.map(([k,_,fm,dir])=>`<td class="${cls(a,k,dir)}">${fm(a[k])}</td>`).join("")}</tr>`).join(""));
+  legend("hyb-legend",[["sq","#e5f6ef","clearly better than the graph model (interval excludes 0; travel not compared)"],["sq","#fdeee7","clearly worse"],["sq","#fff","not clearly different",`border:1px solid #ccc`]]);
+}
+/* ---------- slide 8: complementarity ---------- */
+function renderComp(){
+  const c=D.comp, fr=D.frontier.points.map(P=>P.find(p=>p.f==="B"&&p.a===0&&p.b===0));
+  html("comp-cards",`<div class="card blend"><div class="k">Same top pick</div><div class="v">${rng(c.agree1,p0)}</div><div class="d">of referrals</div></div>
+    <div class="card blend"><div class="k">Top-5 overlap</div><div class="v">${rng(c.overlap5,p0)}</div><div class="d">average share of names shared</div></div>
+    <div class="card blend"><div class="k">Fit of a plain 50/50 blend</div><div class="v">${rng(fr.map(p=>p.fit),v=>(100*v).toFixed(1))}%</div><div class="d">graph ${rng(c.fit_gnn,v=>(100*v).toFixed(1))}%, table ${rng(c.fit_table,v=>(100*v).toFixed(1))}%</div></div>`);
+  const R=[["Among the busiest 10%","busy",p0],["New to the PCP","new",p0],["Specialist has seen the patient’s insurer","ins",p0],["MIPS score","mips",v=>v.toFixed(1)],["Distance from patient, mean (mi)","dist",v=>v.toFixed(1)]];
+  html("comp-table",`<tr><th>Picks only one model makes</th><th>table only</th><th>graph only</th></tr>`+R.map(([l,k,fm])=>`<tr><td>${l}</td><td>${rng(c.table_only[k],fm)}</td><td>${rng(c.gnn_only[k],fm)}</td></tr>`).join(""));
+  html("comp-read",`<b>Reading.</b> The two models disagree on more than half of top picks. The table’s own picks are newer to the PCP but busier and less often have seen the patient’s insurer; the graph’s own picks are familiar and less busy. Because their mistakes differ, a plain 50/50 blend fits better than either model. That spare accuracy can be spent on steering.</p><p class="mini">Choosing per referral between the two lists in hindsight would reach ${pct(c.oracle)} fit: an upper bound, not achievable.`);
+  html("steer-def",`<b>Steering</b> (used on the next slides): rank by the 70/30 model–MIPS score + a·(new to the PCP) − b·(among the busiest 10%), with a and b from {${D.frontier.grid.join(", ")}}. Both attributes are known when the referral is made. Each model is steered the same way, so the comparison is fair.`);
+}
+/* ---------- frontier chart (slides 9 and 11) ---------- */
+function pareto(ps){const s=[...ps].sort((p,q)=>p.busy1-q.busy1||q.new5-p.new5);const out=[];let best=-1;s.forEach(p=>{if(p.new5>best){out.push(p);best=p.new5}});return out}
+function frontierChart(id,fams,pair,star){
+  const P=D.frontier.points[pair].filter(p=>fams.some(f=>f[0]===p.f));const ok=P.filter(p=>p.fit>=0.45);
+  const {svg,w,h}=frame(id);const m={l:58,r:18,t:12,b:42};const x=scale(0.2,0.42,m.l,w-m.r),y=scale(0.12,0.5,h-m.b,m.t);
+  ticks(0.2,0.42,6).forEach(v=>{el("line",{x1:x(v),x2:x(v),y1:m.t,y2:h-m.b,stroke:C.grid},svg);txt(svg,x(v),h-m.b+15,p0(v),{"text-anchor":"middle","font-size":11})});
+  ticks(0.12,0.5,6).forEach(v=>{el("line",{x1:m.l,x2:w-m.r,y1:y(v),y2:y(v),stroke:C.grid},svg);txt(svg,m.l-6,y(v)+4,p0(v),{"text-anchor":"end","font-size":11})});
+  txt(svg,(m.l+w-m.r)/2,h-4,"New to the PCP, top 5 →",{"text-anchor":"middle","font-size":11.5,fill:C.ink});
+  txt(svg,13,(m.t+h-m.b)/2,"Load: top picks on the busiest 10% →",{transform:`rotate(-90 13 ${(m.t+h-m.b)/2})`,"text-anchor":"middle","font-size":11.5,fill:C.ink});
+  const pr=D.topk.practice.load_top1;el("line",{x1:m.l,x2:w-m.r,y1:y(pr),y2:y(pr),stroke:C.prac,"stroke-dasharray":"5 4"},svg);txt(svg,w-m.r-4,y(pr)-5,`actual choices ${pct(pr)}`,{"font-size":11,"text-anchor":"end"});
+  const clip=v=>Math.max(0.2,Math.min(0.42,v));
+  fams.forEach(([f,col])=>{const pts=ok.filter(p=>p.f===f);pts.forEach(p=>{const d=el("circle",{cx:x(clip(p.new5)),cy:y(p.busy1),r:3.2,fill:col,opacity:.35},svg);d.onmousemove=e=>showTip(e,`<b>${D.frontier.families[f]}</b>, a = ${p.a}, b = ${p.b}<br>fit ${pct(p.fit)} · load ${pct(p.busy1)} (top 5 ${pct(p.busy5)})<br>new ${pct(p.new5)} · MIPS ${f1(p.gain5)}`);d.onmouseleave=hideTip});
+    const pf=pareto(pts);if(pf.length)el("polyline",{points:pf.map(p=>`${x(clip(p.new5))},${y(p.busy1)}`).join(" "),fill:"none",stroke:col,"stroke-width":2.5},svg);
+    pf.forEach(p=>el("circle",{cx:x(clip(p.new5)),cy:y(p.busy1),r:4.5,fill:col},svg));
+    const u=P.find(p=>p.f===f&&p.a===0&&p.b===0);if(u){const d=el("rect",{x:x(clip(u.new5))-5,y:y(u.busy1)-5,width:10,height:10,fill:"#fff",stroke:col,"stroke-width":2},svg);d.onmousemove=e=>showTip(e,`<b>${D.frontier.families[f].replace(", steered","")}, no steering</b><br>fit ${pct(u.fit)} · load ${pct(u.busy1)} · new ${pct(u.new5)}${u.fit<0.45?"<br>(fit below 45%: its steered points are not shown)":""}`);d.onmouseleave=hideTip}});
+  if(star){const s=P.find(p=>p.f==="B"&&p.a===star[0]&&p.b===star[1]);if(s){const sx=x(clip(s.new5)),sy=y(s.busy1);el("path",{d:`M${sx},${sy-10} L${sx+3},${sy-3} L${sx+10},${sy-3} L${sx+4},${sy+2} L${sx+6},${sy+9} L${sx},${sy+5} L${sx-6},${sy+9} L${sx-4},${sy+2} L${sx-10},${sy-3} L${sx-3},${sy-3} Z`,fill:"#0b0b0b"},svg);txt(svg,sx+12,sy+16,`chosen setting (a = ${star[0]}, b = ${star[1]})`,{"font-size":11,fill:C.ink})}}
+}
+function renderFrontier(){
+  toggle("fr-pair","fr",[[0,"Seed pairing 1"],[1,"Seed pairing 2"],[2,"Seed pairing 3"]]);
+  const F=[["G",C.graph],["T",C.table],["B",C.blend]];frontierChart("fr-chart",F,state.fr,[0.3,0.4]);
+  legend("fr-legend",[["",C.graph,"graph model, steered"],["",C.table,"table, steered"],["",C.blend,"equal blend, steered"],["","#bbb","faint: other steering settings",""],["sq","#fff","no steering (hollow square)",`border:2px solid ${C.ink2}`],["ln",C.prac,"actual choices"]]);
+  const lo=D.frontier.lowest["0.45"];
+  html("fr-read",`<b>Reading.</b> Each line is the best a family can do: lowest load at each level of newness, keeping fit ≥ 45%. The blend’s line lies below and right of both models in all three pairings. At ≥ 35% new connections, the lowest top-pick load is ${rng(lo.map(p=>p["0.35"].B),pct)} for the blend; the graph model cannot reach 35% at this fit, and the steered table stays ${D.frontier.points.map(P=>pareto(P.filter(p=>p.f==="T"&&p.fit>=0.45&&p.new5>=0.35))[0]).every(Boolean)?`at ${rng(D.frontier.points.map(P=>pareto(P.filter(p=>p.f==="T"&&p.fit>=0.45&&p.new5>=0.35))[0].busy1),pct)}`:"higher"}.</p>
+    <p class="mini"><b>Chosen setting</b> (star): ${D.blend.prereg.selection_rule_on_2018}. Picked on 2018 and written down before 2019 was looked at.</p><p class="mini">Hover any point for its fit, load, newness and MIPS gain.`);
+}
+/* ---------- slide 10: 2019 ---------- */
+function renderY19(){
+  const B=D.blend;const rows=[["Fit","fit",pct,null],["Load (top pick)","busy1",pct,"busy1"],["Load (top 5)","busy5",pct,"busy5"],["New to the PCP, top 5","new5",pct,"new5"],["MIPS gain","gain5",v=>f1(v),"gain5"],
+    ["“Good” new picks (new, higher MIPS, not busiest)","good_new5",pct,null],["New picks whose specialist has seen the insurer","new_insurer_rate",pct,null],["Mean travel, top 5","dist_mean5",mi,null]];
+  const crit={busy1:c=>c[1]<0,busy5:c=>c[1]<0,new5:c=>c[0]>0,gain5:c=>c[0]>=-0.5};
+  const fitOk=P=>P.every(p=>p["Steered blend"].fit>=Math.min(p.GNN.fit,p.Table.fit)-0.01);
+  const cell=(P,arm,k,fm)=>{const v=P.map(p=>p[arm][k]);return `<td style="white-space:nowrap" title="pairings: ${v.map(fm).join(" / ")}">${fm(mean(v))}</td>`};
+  html("y19-table",`<tr><th></th><th colspan="3" style="text-align:center">2018 (setting chosen here)</th><th colspan="3" style="text-align:center">2019 (held out)</th><th></th></tr><tr><th>Lens</th><th>graph</th><th>table</th><th>blend</th><th>graph</th><th>table</th><th>blend</th><th>2019 criterion</th></tr>`+
+    rows.map(([l,k,fm,ck])=>{const ok=ck?B.y2019.every(p=>crit[ck](p.ci_vs_gnn[ck])):k==="fit"?fitOk(B.y2019):null;
+      return `<tr><td>${l}</td>${["GNN","Table","Steered blend"].map(a=>cell(B.y2018,a,k,fm)).join("")}${["GNN","Table","Steered blend"].map(a=>cell(B.y2019,a,k,fm)).join("")}<td>${ok==null?"<span class='mini'>reported</span>":ok?'<span class="ok">✓</span>':'<span class="nok">✗</span>'}</td></tr>`}).join(""));
+  html("y19-sub",`Steered blend (50/50, a = ${B.setting.a_new}, b = ${B.setting.b_busy}) vs the graph model and the table; ${B.n2018.toLocaleString()} referrals in 2018, ${B.n2019.toLocaleString()} in 2019`);
+  const d19=B.y2019.map(p=>p["Steered blend"].busy1-p.GNN.busy1);
+  html("y19-read",`<b>Pre-stated 2019 criteria</b> (vs the graph model, every pairing): load lower on the top pick and the top 5; more new connections; MIPS gain not lower by more than 0.5; fit within 1 point of the weaker model. All held. On 2019 the blend cuts top-pick load by ${rng(d19.map(v=>-v),p1)} points against the graph model and matches the table’s newness.`);
+  const fd=B.y2019.map(p=>p["Steered blend"].fit-p.GNN.fit);
+  html("y19-cav",`<b>Added after the meeting (19 Oct):</b> with 10 and 15 names the same setting still roughly halves top-pick load against the graph model on 2019 (see the combined story deck, slide 13).</p><p class="mini"><b>Caveats.</b> On 2019 the graph model fits better than on 2018, and the blend is ${rng(fd.map(v=>-v),p1)} points below it (above the table). 2019 was used before for earlier confirmations; this was one more pass, with the setting and criteria recorded first.`);
+}
+/* ---------- slide 11: heavy hybrids ---------- */
+function renderHeavy(){
+  toggle("hv-pair","hv",[[0,"Seed pairing 1"],[1,"Seed pairing 2"],[2,"Seed pairing 3"]]);
+  const F=[["B",C.blend],["O",C.offset],["D",C.dual],["K",C.stack]];frontierChart("hv-chart",F,state.hv,null);
+  legend("hv-legend",[["",C.blend,"equal blend, steered"],["",C.offset,"table-offset GNN"],["",C.dual,"dual encoder"],["",C.stack,"stacked LightGBM"],["sq","#fff","no steering",`border:2px solid ${C.ink2}`]]);
+  const U=D.frontier.unsteered_12d, H=D.heavy;const fams=[["B","Equal blend"],["O","Table-offset GNN"],["D","Dual encoder"],["S","Stacked LightGBM"]];
+  html("hv-table",`<table class="t" style="font-size:12.5px"><tr><th>No steering (3 pairings)</th><th>fit %</th><th>load %</th><th>new %</th></tr>`+fams.map(([f,n])=>`<tr><td>${n}</td><td style="white-space:nowrap">${rng(U.map(u=>u[f].fit),p1)}</td><td style="white-space:nowrap">${rng(U.map(u=>u[f].busy1),v=>(100*v).toFixed(0))}</td><td style="white-space:nowrap">${rng(U.map(u=>u[f].new5),v=>(100*v).toFixed(0))}</td></tr>`).join("")+`</table>`);
+  const L35=D.frontier.lowest["0.45"].map(p=>p["0.35"]);const reach=f=>L35.filter(p=>p[f]!=null).length;const bLow=L35.every(p=>Object.entries(p).every(([f,v])=>f==="B"||v==null||p.B<=v));
+  html("hv-read",`<b>Reading.</b> Trained together, each hybrid collapses toward one parent. The offset model keeps the table’s score at full weight (learned ${rng(H.beta,v=>v.toFixed(2))}, start 1) and acts like the table; the stacked LightGBM puts ${rng(H.stack_share,p0)} of its gain on the GNN score (rank 1 of ${H.stack_nfeat}) and acts like the GNN; the dual encoder sits between. They lose the disagreement that makes the blend accurate. At ≥ 35% new connections with fit ≥ 45%: blend reachable in ${reach("B")}/3 pairings, offset ${reach("O")}/3, dual ${reach("D")}/3, stacked ${reach("S")}/3; ${bLow?"the blend’s load is lowest in every pairing":"the blend is not lowest in every pairing"}.`);
+}
+/* ---------- slide 12: blend checks ---------- */
+const BCM=[["busy1","Load (top pick)",pt,"points; left = blend spreads load more",-1],["fit","Fit",pt,"points; right = blend fits better",1],["new5","New to PCP",pt,"points; right = more new connections",1],["gain5","MIPS gain",v=>f1(v),"MIPS points; right = better",1]];
+function renderBC(){
+  toggle("bc-metric","bc",BCM.map(m=>[m[0],m[1]]));const [k,lab,fm,ax,dir]=BCM.find(m=>m[0]===state.bc);const R=D.bchk.groups;
+  const SH={"Patient local access":"Patient access","PCP history (referrals made before)":"PCP history","PCP network (specialists used)":"PCP network","Referred specialist tenure":"Chosen specialist’s tenure","Referred specialist experience":"Chosen specialist’s experience","Referred specialist location":"Chosen specialist’s location"};
+  const rows=R.map(r=>({head:SH[r.split]||r.split,label:r.group,est:r[`d|${k}`],ci:r[`d|${k}|ci`],small:r.small,
+    tip:`<b>${r.split}: ${r.group}</b><br>${r.n.toLocaleString()} referrals, ${r.patients.toLocaleString()} patients, ${r.pcps} PCPs${r.small?" (small: not judged)":""}<br>${lab}: blend ${k==="gain5"?f1(r[`Blend|${k}`]):pct(r[`Blend|${k}`])}, graph ${k==="gain5"?f1(r[`GNN|${k}`]):pct(r[`GNN|${k}`])}, table ${k==="gain5"?f1(r[`Table|${k}`]):pct(r[`Table|${k}`])}<br>Blend − graph ${fm(r[`d|${k}`])} [${fm(r[`d|${k}|ci`][0])}, ${fm(r[`d|${k}|ci`][1])}]`}));
+  forest("bc-chart",rows,{fmt:fm,axis:`Steered blend − graph model, ${lab.toLowerCase()} (${ax})`,labelW:250,
+    colour:r=>r.small?"#b0aec0":(dir<0?r.ci[1]<0:r.ci[0]>0)?C.blend:(dir<0?r.ci[0]>0:r.ci[1]<0)?C.load:C.grey});
+  legend("bc-legend",[["",C.blend,"blend clearly better"],["",C.load,"blend clearly worse"],["",C.grey,"interval crosses 0"],["","#fff","hollow: < 100 patients or < 5 PCPs (not judged)",`border:2px solid #b0aec0`]]);
+  const W=D.bchk.where, T=["bottom half","50–75th","75–90th","top 10% of set"], TC=["#d9e8f8","#9cc3ee","#5b9be0","#eb6834"];
+  const {svg,w,h}=frame("bc-tier");const m={l:96,r:10,t:18,b:0};const arms=[["Graph model","GNN"],["Table","Table"],["Steered blend","Blend"]];const bh=(h-m.t-m.b)/arms.length;const x=scale(0,1,m.l,w-m.r);
+  txt(svg,m.l,13,"Top pick by the specialist’s volume rank within the eligible set",{"font-size":11.5,fill:C.ink});
+  arms.forEach(([n,a],i)=>{let acc=0;const yy=m.t+i*bh+3;txt(svg,m.l-8,yy+bh/2+1,n,{"text-anchor":"end","font-size":12,fill:C.ink});
+    T.forEach((t,j)=>{const v=W[a].top_pick_volume_tier[t];const r=el("rect",{x:x(acc),y:yy,width:x(acc+v)-x(acc),height:bh-12,fill:TC[j]},svg);if(v>0.08)txt(svg,(x(acc)+x(acc+v))/2,yy+(bh-12)/2+4,p0(v),{"text-anchor":"middle","font-size":11,fill:j===3?"#fff":C.ink});
+      r.onmousemove=e=>showTip(e,`<b>${n}</b>: ${pct(v)} of top picks in the ${t} of their eligible set by training-period volume`);r.onmouseleave=hideTip;acc+=v})});
+  legend("bc-tier-legend",T.map((t,j)=>["sq",TC[j],t==="top 10% of set"?"top 10% by volume":t+" by volume"]));
+  const P=W["Practice (chosen)"], AV=W["Available (eligible sets)"];
+  html("bc-exp",`<table class="t" style="font-size:12px"><tr><th>Top pick is…</th><th>graph</th><th>table</th><th>blend</th><th>actual</th><th>available</th></tr>
+    <tr><td>early-career (≤ 6 y)</td><td>${pct(W.GNN.early1)}</td><td>${pct(W.Table.early1)}</td><td>${pct(W.Blend.early1)}</td><td>${pct(P.early1)}</td><td>${pct(AV.early)}</td></tr>
+    <tr><td>low-experience (&lt; 10 refs)</td><td>${pct(W.GNN.lowexp1)}</td><td>${pct(W.Table.lowexp1)}</td><td>${pct(W.Blend.lowexp1)}</td><td>${pct(P.lowexp1)}</td><td>${pct(AV.lowexp)}</td></tr>
+    <tr><td>non-metro</td><td>${pct(W.GNN.nonmetro1)}</td><td>${pct(W.Table.nonmetro1)}</td><td>${pct(W.Blend.nonmetro1)}</td><td>${pct(P.nonmetro1)}</td><td>${pct(AV.nonmetro)}</td></tr></table>`);
+  const e50=R.find(r=>r.group==="50+");
+  const e19=R.find(r=>r.group==="1–9"), e10=R.find(r=>r.group==="10–49");
+  html("bc-read",`<b>Reading.</b> Fit is level overall but drops ${p1(-e50["d|fit"])} points ${ptci(e50["d|fit|ci"])} where the PCP chose a specialist with 50+ earlier referrals (rises ${p1(e19["d|fit"])} / ${p1(e10["d|fit"])} for 1–9 / 10–49): the blend steers away from busy specialists by design. Freed top picks go to mid-volume specialists; early-career and low-experience ones stay below actual choices.`);
+}
+/* ---------- slide 13 ---------- */
+function renderTake(){
+  const b19=D.blend.y2019;
+  const tk=[["var(--load)","Exceptions and longer lists","No group breaks the pattern after adjustment. The graph model’s advantage is at the top of the list."],
+    ["var(--load)","Congestion","The graph model’s lower load does not come from message passing or PCP history. Neural models in general concentrate less than trees at the same fit; the pre-registered test could not pin down a single cause."],
+    ["var(--blend)","Hybrids",`The two models make different mistakes. A steered 50/50 blend uses that: on 2019, top-pick load ${rng(b19.map(p=>p["Steered blend"].busy1),p0)} (graph ${rng(b19.map(p=>p.GNN.busy1),p0)}, table ${rng(b19.map(p=>p.Table.busy1),p0)}), the table’s newness, higher MIPS gain, fit ${rng(b19.map(p=>p.GNN.fit-p["Steered blend"].fit),p1)} points below the graph model. More complex hybrids collapse toward one parent.`]];
+  html("take",tk.map(([c,b,s])=>`<div class="panel" style="--tint:#f6f6f4;border-left:6px solid ${c}"><p class="mini"><b>${b}.</b> ${s}</p></div>`).join(""));
+  const asks=[["var(--blend)","Adopt the steered blend as the working recommender?","The steering weights (how much newness and load to trade for fit) are a policy choice. Who should set them, and on what basis?"],
+    ["var(--load)","Is the fit cost acceptable?","It falls where the PCP chose a very busy specialist: the blend proposes a less busy one instead."],
+    ["var(--table)","Steer the flattened-graph LightGBM too?","It was the closest simple hybrid but was not put on the steering frontier. One more family on the same 2018 grid."],
+    ["var(--fit)","Confirm the specialist volume data year?","The volume figures look like the ~2018 release, overlapping the 2018 evaluation year. Can the data owner confirm?"]];
+  html("asks",asks.map(([c,q,s],i)=>`<div class="q" style="--qc:${c};margin:0 0 9px"><span class="n">${i+1}</span><div><b>${q}</b> <span style="font-size:15.5px;color:#44464f">${s}</span></div></div>`).join(""));
+}
+function renderAll(){const f=[renderQA,renderGroups,renderTopK,renderMech,renderHyb,renderComp,renderFrontier,renderY19,renderHeavy,renderBC,renderTake];f.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+fit();go((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>

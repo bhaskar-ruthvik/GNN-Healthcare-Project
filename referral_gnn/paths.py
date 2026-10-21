@@ -46,11 +46,12 @@ def script_path(name: str) -> Path:
 def resolve_run(ref: str) -> str:
     """A run folder given as a path or by its run name, e.g. 'lgbm_tabular_s42' → 'runs/<timestamp>_lgbm_tabular_s42' in the
     workspace. Lets run lists and commands name runs without their timestamps. The returned path is valid from the current
-    directory (relative when inside the workspace). Incomplete runs (suffix _INCOMPLETE) are never matched."""
+    directory (relative when inside the workspace). An exact folder name under runs/ is also accepted. Incomplete runs (suffix _INCOMPLETE) are never matched."""
     import glob
     if ref and os.path.isdir(ref): return ref
     ws = workspace()
     if ref and (ws / ref).is_dir(): return os.path.relpath(ws / ref)
+    if ref and (ws / "runs" / ref).is_dir(): return os.path.relpath(ws / "runs" / ref)      # an exact run folder name (with its timestamp)
     hits = [h for h in sorted(glob.glob(str(ws / "runs" / f"*_{ref}"))) if os.path.isdir(h) and not h.endswith("_INCOMPLETE")]
     if len(hits) != 1: raise FileNotFoundError(f"run '{ref}': {len(hits)} matching folders under {ws / 'runs'}")
     return os.path.relpath(hits[0])

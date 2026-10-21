@@ -1,5 +1,7 @@
 # Referral GNN
 
+Repository: https://github.com/bhaskar-ruthvik/GNN-Healthcare-Project (private; access on request).
+
 Specialist recommendations for primary-care referrals, built on a heterogeneous graph of PCPs, encounters and specialists
 (HGT), and compared with a strong tabular model. Every model is judged on four lenses rather than on an accuracy score:
 - **quality:** MIPS gain over the specialist actually chosen;

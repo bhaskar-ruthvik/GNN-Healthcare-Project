@@ -245,9 +245,13 @@ if base_runs:
 for run, man, rp in zip(args.runs, mans, run_paths):
     name = os.path.basename(run.rstrip("/")); mr = mi_of[rp]
     if is_baseline_run(man): continue
-    if man.get("kind") == "emb_lr":                        # STEP12b H2: GNN encoder + logistic regression (torch only)
-        from referral_gnn.hybrid import load_emb_lr_scorer
-        t0 = time.time(); sc = load_emb_lr_scorer(run, mr, device); out = [None] * n_ref
+    if man.get("kind") in ("emb_lr", "mlp"):              # STEP12b H2: GNN encoder + logistic regression; STEP13 MLP cells (torch only)
+        if man["kind"] == "mlp":
+            from referral_gnn.mlp_ranker import load_mlp_scorer
+            t0 = time.time(); sc = load_mlp_scorer(run, mr, "cpu"); out = [None] * n_ref
+        else:
+            from referral_gnn.hybrid import load_emb_lr_scorer
+            t0 = time.time(); sc = load_emb_lr_scorer(run, mr, device); out = [None] * n_ref
         for cutoff, batch_enc, q_b in mr.buckets(args.split, "week", query_subset=np.sort(enc_ids)):
             sc.prepare(cutoff, batch_enc)
             for q in q_b:
@@ -589,6 +593,15 @@ for r_, m_ in zip(args.runs, mans):
     elif m_.get("model_config", {}).get("use_graph") is False: ARM_OF[n_] = None       # tagged below as *_nograph
     elif m_.get("model_config", {}).get("scorer_skip"): ARM_OF[n_] = "model_c2_skip"   # STEP11 B5 architecture arms
     elif float(m_.get("history_dropout") or 0) > 0: ARM_OF[n_] = f"model_c1_hd{float(m_['history_dropout']):g}"
+# STEP13 (m3): runs that share an explicit arm must share their model configuration and features (seeds only differ), so an
+# ablated cell can never be averaged into its parent's arm
+_cell_sig = {}
+for r_, m_ in zip(args.runs, mans):
+    n_ = os.path.basename(r_.rstrip("/")); a_ = ARM_OF.get(n_)
+    if not a_: continue
+    sig_ = json.dumps([m_.get("model_config"), m_.get("feature_set"), m_.get("feature_opts"), m_.get("kind"), (m_.get("params") or {}).get("num_leaves"),
+                       (m_.get("params") or {}).get("min_data_in_leaf"), (m_.get("params") or {}).get("num_iteration"), m_.get("hidden"), m_.get("dropout")], sort_keys=True, default=str)
+    assert _cell_sig.setdefault(a_, sig_) == sig_, f"arm {a_} would merge runs with different configurations (e.g. {n_})"
 def fam(c_):
     if c_.startswith("model:") and ARM_OF.get(c_.split(":", 1)[1].split("+")[0].split("@")[0]):
         run = c_.split(":", 1)[1].split("+")[0]

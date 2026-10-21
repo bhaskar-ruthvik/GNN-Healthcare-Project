@@ -55,6 +55,7 @@ class ThreeNodeConfig:
     table_offset: bool = False            # STEP12d A: score += β·(table score), β learned (init 1); the GNN learns on top of the table
     tab_dim: int = 0                      # STEP12d C: >0 = dual encoder; width of the pure-tabular feature row fed to a tabular tower
     tab_hidden: int = 64
+    pcp_in_scorer: bool = False           # STEP13 NG+P: the scorer also reads the query PCP's encoding h["pcp"][enc_pcp[enc_idx]]
 
     def to_dict(self):
         return asdict(self)
@@ -90,7 +91,10 @@ class ThreeNodeGNN(nn.Module):
             self.tab_tower = nn.Sequential(nn.Linear(cfg.tab_dim, cfg.tab_hidden), nn.ReLU(), nn.Dropout(cfg.dropout), nn.Linear(cfg.tab_hidden, cfg.tab_hidden), nn.ReLU())
             self.register_buffer("tab_mu", torch.zeros(cfg.tab_dim)); self.register_buffer("tab_sd", torch.ones(cfg.tab_dim))
         if cfg.table_offset: self.offset_beta = nn.Parameter(torch.ones(()))
-        self.scorer = MLP((5 if cfg.scorer_skip else 2) * d + dims["pair"] + (cfg.tab_hidden if cfg.tab_dim else 0), cfg.scorer_hidden, cfg.dropout)
+        if cfg.pcp_in_scorer:                               # STEP13: encounter → PCP map, rebuilt from the inputs on load (not saved)
+            assert "enc_pcp" in blocks, "pcp_in_scorer needs blocks['enc_pcp']"
+            self.register_buffer("enc_pcp", torch.as_tensor(blocks["enc_pcp"], dtype=torch.long), persistent=False)
+        self.scorer = MLP(((5 if cfg.scorer_skip else 2) + int(cfg.pcp_in_scorer)) * d + dims["pair"] + (cfg.tab_hidden if cfg.tab_dim else 0), cfg.scorer_hidden, cfg.dropout)
 
     # ------------------------------------------------------------------
     def _zero_block(self, x, name):
@@ -165,9 +169,14 @@ class ThreeNodeGNN(nn.Module):
 
     def score(self, h, enc_idx, spec_idx, pair_feat, *_ignored, tab=None, offset=None) -> torch.Tensor:
         """Scores for aligned (query encounter, candidate specialist) pairs.
-        Extra positional args (patient/pcp indices from the four-node scorer API) are ignored.
+        Extra positional args (patient/pcp indices from the four-node scorer API) are ignored, except that with pcp_in_scorer
+        a passed PCP index must agree with the model's own encounter → PCP map (so training and evaluation read the same PCP).
         STEP12d: tab = pure-tabular rows (dual encoder); offset = table scores (table-offset model)."""
         parts = [h["encounter"][enc_idx], h["specialist"][spec_idx]]
+        if self.cfg.pcp_in_scorer:
+            pcp_idx = self.enc_pcp[enc_idx]
+            if len(_ignored) >= 2: assert torch.equal(pcp_idx, _ignored[1].to(pcp_idx.device)), "PCP index passed by the caller disagrees with enc_pcp"
+            parts.append(h["pcp"][pcp_idx])
         if self.cfg.scorer_skip:                                # C2: skip (pre-HGT encodings) + explicit condition × specialist interaction
             e0, s0 = h["encounter0"][enc_idx], h["specialist0"][spec_idx]; parts += [e0, s0, e0 * s0]
         parts.append(self._mask_pair(pair_feat))

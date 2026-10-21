@@ -55,6 +55,8 @@ ap.add_argument("--offset-table-run", default=None, help="STEP12d A: the full ta
 ap.add_argument("--tab-tower", action="store_true", help="STEP12d C: dual encoder (GNN + tabular tower over the pure-tabular row)")
 ap.add_argument("--exclude-fold", type=int, default=None, help="STEP12d B: train without training-query time fold k (of --n-folds)")
 ap.add_argument("--n-folds", type=int, default=3)
+ap.add_argument("--pcp-in-scorer", action="store_true", help="STEP13 NG+P: scorer also reads the query PCP's encoding (use with --no-graph)")
+ap.add_argument("--arm", default=None, help="STEP13: evaluator arm name written to the run manifest (one arm per cell; checked for collisions)")
 ap.add_argument("--resume", default=None, metavar="RUN_DIR", help="continue an interrupted run from its last completed epoch (same flags required; checked against its manifest)")
 args = ap.parse_args()
 
@@ -64,7 +66,7 @@ if args.offset_table_run: args.offset_table_run = resolve_run(args.offset_table_
 inputs_path = os.path.join(root, args.inputs) if not os.path.isabs(args.inputs) else args.inputs
 mi = load_three_node_inputs(inputs_path)
 mcfg = ThreeNodeConfig(temporal_edges=bool(args.temporal), use_graph=not args.no_graph, mask_demographics=args.mask_demographics, scorer_skip=args.scorer_skip, volume_mode=args.volume_mode, table_offset=bool(args.table_offset),
-                       tab_dim=(117 if args.tab_tower else 0), **{a: True for a in args.ablation})
+                       tab_dim=(117 if args.tab_tower else 0), pcp_in_scorer=args.pcp_in_scorer, **{a: True for a in args.ablation})
 tcfg = TrainConfig(lr=args.lr, max_epochs=args.epochs, patience=args.patience, accumulate_days=args.accumulate, seed=args.seed, device=args.device, max_train_days=args.max_train_days, graph_bucket=args.graph_bucket)
 import json
 if args.resume:
@@ -111,9 +113,10 @@ if args.table_offset:                                                      # STE
 if args.table_offset or args.tab_tower: tr._probe_device()               # STEP12d: device probe once the extras exist
 tr.pos_weight_alpha = args.pos_weight_alpha; tr.neg_policy = args.negatives; tr.neg_k = tuple(int(x) for x in args.neg_k.split(",")); tr.train_cohort = args.cohort; tr.val_pool = args.val_pool
 tr.manifest.update(selection_metric=args.select, lr_factor=args.lr_factor, lr_patience=args.lr_patience, improve_rel=tr.improve_rel, neg_policy=args.negatives, neg_k=list(tr.neg_k), train_cohort=args.cohort, val_pool=args.val_pool, pos_weight_alpha=args.pos_weight_alpha, train_end=args.train_end, history_dropout=args.history_dropout, loss=args.loss,
-                   exclude_fold=args.exclude_fold, n_folds=args.n_folds, table_offset_npz=args.table_offset, offset_table_run=args.offset_table_run, tab_tower=args.tab_tower)
+                   exclude_fold=args.exclude_fold, n_folds=args.n_folds, table_offset_npz=args.table_offset, offset_table_run=args.offset_table_run, tab_tower=args.tab_tower,
+                   **({"arm": args.arm} if args.arm else {}))
 if old_manifest is not None:
-    keys = ("inputs_sha256", "model_config", "train_config", "seed", "selection_metric", "lr_factor", "lr_patience", "improve_rel", "neg_policy", "neg_k", "train_cohort", "val_pool", "n_parameters", "pos_weight_alpha", "train_end", "history_dropout", "loss", "exclude_fold", "n_folds", "table_offset_npz", "table_offset_npz_sha256", "offset_table_run", "tab_tower")
+    keys = ("inputs_sha256", "model_config", "arm", "train_config", "seed", "selection_metric", "lr_factor", "lr_patience", "improve_rel", "neg_policy", "neg_k", "train_cohort", "val_pool", "n_parameters", "pos_weight_alpha", "train_end", "history_dropout", "loss", "exclude_fold", "n_folds", "table_offset_npz", "table_offset_npz_sha256", "offset_table_run", "tab_tower")
     old_get = lambda k: old_manifest.get(k, 0.0 if k in ("pos_weight_alpha", "history_dropout") else ("softmax" if k == "loss" else None))        # train_end: None for older runs        # runs before A10 had no weighting
     diff = [k for k in keys if json.loads(json.dumps(old_get(k))) != json.loads(json.dumps(tr.manifest.get(k)))]
     if diff:

@@ -27,10 +27,10 @@ Evaluation passes take minutes. The scripts only append: they never overwrite a 
 
 ## What was re-run to check this repository
 
-The code was reorganised into this repository after the results were produced. Re-running the cheap stages from the
-repository against the original inputs and checkpoints reproduced the saved results exactly. The list of re-run stages and
-their comparisons is in `docs/reproduction_check.md`. Training was not repeated: it is long, and MPS is not bit-deterministic.
-The run manifests record the inputs and code hashes of every model.
+The code was reorganised into this repository after the results were produced. A check that re-runs the cheap stages
+from the repository against the original inputs and checkpoints, and compares the outputs with the saved results, is
+**pending**. Its outcome will be recorded in `docs/reproduction_check.md`. Training is not repeated: it is long, and MPS is
+not bit-deterministic. The run manifests record the inputs and code hashes of every model.
 
 ## Shared definitions worth knowing
 

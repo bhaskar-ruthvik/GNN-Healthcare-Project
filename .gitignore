@@ -1,11 +1,12 @@
 # ---- data and outputs: NEVER commit (private claims data and anything derived from it) ----
-data/
-reference_data/
-prepared_data/
-runs/
-snapshots/
-deliverables/
-outputs/
+# Folder patterns are anchored to the repository root (/data/), so scripts/data/ and scripts/deliverables/ (code) are kept.
+/data/
+/reference_data/
+/prepared_data/
+/runs/
+/snapshots/
+/deliverables/
+/outputs/
 *PRIVATE*
 *.pkl
 *.npz

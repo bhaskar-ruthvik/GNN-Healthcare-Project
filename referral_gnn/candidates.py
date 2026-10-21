@@ -4,7 +4,7 @@ blend, heavier hybrids, top-K).
 A dump is written by `scripts/evaluate/step10_evaluate.py --dump-scores`: for every evaluated referral, its eligible specialists
 (flattened, with `offsets`) carrying each model's raw score (`score::<run>`) and the knowable lens attributes (busiest-10% flag,
 new to the PCP, MIPS, as-of MIPS, distance, ...). The functions below reproduce, operation for operation, the arithmetic the
-analyses used when they were run (results are bit-identical; see REPRODUCE.md):
+analyses used when they were run, keeping each script's order of operations (the reproduction check is pending; see REPRODUCE.md):
   base score at the 30% quality weight    0.7·z(model score) + 0.3·z(as-of MIPS), z within the referral's candidates
   equal blend                             0.7·z(0.5·z(GNN) + 0.5·z(table)) + 0.3·z(as-of MIPS)
   steering                                + a·[new to the PCP] − b·[busiest 10%]

@@ -8,6 +8,8 @@ Objectives (§2.A):
   binary      pointwise logistic
   xendcg      LightGBM rank_xendcg (descriptive extra only; label-smoothed, not softmax)
 Feature options: --volume shares (B2), --no-pcp (H1 PCP-attribute check). Inputs: --feature-set tabular | primary (gate branch).
+STEP13 (STEP13_GRAPH_VALUE_PLAN.md, frozen 2026-10-21): --feature-set flat_rf | full_nohist | full | insmatch, arm s13_lgbm_<set>_<objective>;
+  tune mode with --extra-seeds 7 also trains seed 7 at the chosen configuration (run name <arm>_s7).
 Modes:
   tune      12-config grid (leaves {31,127} × min leaf {50,200} × rounds {250,500,1000}); best config written as seed 42, then
             seed 1 of the same config (identical to baselines11.run_lgbm)
@@ -42,7 +44,7 @@ from referral_gnn import tabular as T  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--inputs", default="prepared_data/three_node_v5/model_inputs_PRIVATE.pkl")
-ap.add_argument("--feature-set", default="tabular", choices=["tabular", "primary", "flat"])
+ap.add_argument("--feature-set", default="tabular", choices=["tabular", "primary", "flat", "flat_rf", "full_nohist", "full", "insmatch"])
 ap.add_argument("--objective", required=True, choices=["lambdarank", "softmax", "binary", "xendcg"])
 ap.add_argument("--volume", default="keep", choices=["keep", "shares", "strict"])
 ap.add_argument("--no-pcp", action="store_true")
@@ -51,15 +53,17 @@ ap.add_argument("--mode", required=True, choices=["tune", "fixed", "capacity"])
 ap.add_argument("--config", default=None, help="fixed mode: LEAVES:MINLEAF:ROUNDS")
 ap.add_argument("--seeds", type=int, nargs="+", default=[42])
 ap.add_argument("--threads", type=int, default=6)
+ap.add_argument("--extra-seeds", type=int, nargs="*", default=[], help="tune mode: further seeds trained at the chosen configuration (STEP13: 7)")
 args = ap.parse_args()
 assert args.mode != "fixed" or args.config, "--mode fixed needs --config"
 
 root = str(workspace()); os.chdir(root)
 inputs_path = os.path.join(root, args.inputs)
 mi = load_three_node_inputs(inputs_path)
-INPUTS_SHA = sha256_file(inputs_path); CODE_SHA = code_hash(os.path.join(root, "referral_gnn"))
+INPUTS_SHA = sha256_file(inputs_path); CODE_SHA = code_hash(str(code_file("referral_gnn")))  # the repository library, not the data workspace
 FB_OPTS = {"volume": args.volume, "no_pcp": args.no_pcp, **({"extra_npz": os.path.relpath(args.extra_npz, root)} if args.extra_npz else {})}
-ARM = f"s12_lgbm_{args.feature_set}_{args.objective}" + ({"shares": "_shares", "strict": "_strict"}.get(args.volume, "")) + ("_nopcp" if args.no_pcp else "") + ("_stack" if args.extra_npz else "")   # stacking: LightGBM seed s uses GNN seed s's scores (one run per seed, fixed mode)
+STEP13 = args.feature_set in T.STEP13_SETS
+ARM = f"{'s13' if STEP13 else 's12'}_lgbm_{args.feature_set}_{args.objective}" + ({"shares": "_shares", "strict": "_strict"}.get(args.volume, "")) + ("_nopcp" if args.no_pcp else "") + ("_stack" if args.extra_npz else "")   # stacking: LightGBM seed s uses GNN seed s's scores (one run per seed, fixed mode)
 sel = np.sort(mi.validation_sample)
 fo_sel = sel[mi.ps_asof.lookup(mi.enc_patient[sel] * mi.n_specialist + mi.enc_target[sel], mi.enc_day[sel]) < 0]
 
@@ -85,8 +89,8 @@ def write_run(name, seed, params, tuning, best, booster, num_iteration, names, a
     run_dir = os.path.join(root, "runs", time.strftime("%Y%m%dT%H%M%S") + "_" + name)
     while os.path.exists(run_dir): time.sleep(1); run_dir = os.path.join(root, "runs", time.strftime("%Y%m%dT%H%M%S") + "_" + name)
     os.makedirs(run_dir); booster.save_model(os.path.join(run_dir, "model.txt"), num_iteration=int(num_iteration))
-    man = {"kind": "lgbm", "arm": arm or ARM, "step": "12b" if args.feature_set == "flat" else "12a",
-           "protocol": "STEP12B_HYBRID_PLAN.md" if args.feature_set == "flat" else "STEP12_CONGESTION_PLAN.md (frozen 2026-10-12)", "seed": seed,
+    man = {"kind": "lgbm", "arm": arm or ARM, "step": "13" if STEP13 else ("12b" if args.feature_set == "flat" else "12a"),
+           "protocol": "STEP13_GRAPH_VALUE_PLAN.md (frozen 2026-10-21)" if STEP13 else ("STEP12B_HYBRID_PLAN.md" if args.feature_set == "flat" else "STEP12_CONGESTION_PLAN.md (frozen 2026-10-12)"), "seed": seed,
            "params": {**params, "objective": args.objective, "num_iteration": int(num_iteration)}, "feature_set": args.feature_set,
            "feature_opts": FB_OPTS, "feature_names": names, "inputs_path": inputs_path, "inputs_sha256": INPUTS_SHA, "code_sha256": CODE_SHA,
            "train_config": {"graph_bucket": "week"}, "selection_metric": "firstobs_mrr_eligible", "selection_queries": int(len(fo_sel)),
@@ -122,6 +126,10 @@ if args.mode == "tune":
     b1 = train(row["num_leaves"], row["min_data_in_leaf"], row["num_iteration"], 1)
     m1 = select_metric(T.TabularScorer(mi, T.BoosterAt(b1, row["num_iteration"]), args.feature_set, **FB_OPTS))
     write_run(f"{ARM}_s1", 1, PARAMS(row["num_leaves"], row["min_data_in_leaf"]), [{**row, **m1}], m1["firstobs_mrr_eligible"], b1, row["num_iteration"], fb.names)
+    for sd in args.extra_seeds:                                                # STEP13: seed 7 at the configuration chosen on seed 42
+        bx = train(row["num_leaves"], row["min_data_in_leaf"], row["num_iteration"], sd)
+        mx = select_metric(T.TabularScorer(mi, T.BoosterAt(bx, row["num_iteration"]), args.feature_set, **FB_OPTS))
+        write_run(f"{ARM}_s{sd}", sd, PARAMS(row["num_leaves"], row["min_data_in_leaf"]), [{**row, **mx}], mx["firstobs_mrr_eligible"], bx, row["num_iteration"], fb.names)
 elif args.mode == "fixed":
     L, M, R = (int(x) for x in args.config.split(":"))
     for sd in args.seeds:

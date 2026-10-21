@@ -1,13 +1,14 @@
 # Methods appendix
 
-*Referral GNN, as of 19 October 2026.*
+*Referral GNN, as of 21 October 2026.*
 
 This file gathers in one place the definitions used throughout the write-up, the decks and the verification workbook. Authoritative sources, which this summarises:
-- `Implementation/ARCHITECTURE.md`
-- `Implementation/STEP10_PROTOCOL.md`
-- `Implementation/STEP11_PLAN.md`
-- `Implementation/STEP12*_PLAN.md`
-- `PROJECT_LOG.md`
+- `docs/ARCHITECTURE.md`
+- `docs/STEP10_PROTOCOL.md`
+- `docs/STEP11_PLAN.md`
+- `docs/STEP12*_PLAN.md`
+
+(all in the code repository), and the project's running log.
 
 ---
 
@@ -195,4 +196,4 @@ The chosen specialist is in the set for about 87% of referrals.
 - Python 3.12.12, torch 2.14.0 (MPS), torch_geometric 2.8.0.post1, LightGBM 4.7.0.
 - Every run writes `run_manifest.json`: input SHA-256, code SHA-256, configuration and seed. Builders refuse to overwrite completed artefacts.
 - MPS is not bit-deterministic: same-seed reruns differ slightly (the 42_dup runs measure this).
-- The reproduction guide, mapping each result to its command, ships with the code repository.
+- **Code:** https://github.com/bhaskar-ruthvik/GNN-Healthcare-Project (private; access on request). `REPRODUCE.md` maps each result to its command; `README.md` covers set-up.
