@@ -6,11 +6,14 @@
            (B₂ and the rare categories computed here from attributes, not outcomes), the matching grid and the test definitions.
            Refuses a dirty worktree (--draft writes design_manifest_DRAFT.json for review instead) and refuses once any s13 run
            exists.
+  amend    after the design manifest, before any outcome evaluation: records a dated amendment (STEP13_AMENDMENTS.md) as
+           runs/analysis/step13/amendments/<ID>.json — the clean commit, the new amendments hash and every file whose hash changed
+           (before → after). The design manifest is never edited; later stages accept exactly the recorded changes.
   resolve  after tuning and training, before the phase-1 outcome evaluation: writes runs/analysis/step13/resolved_manifest.json —
            per cell and seed the run folder, configuration, checkpoint hash, training provenance (code and inputs hashes; for
            existing checkpoints their original provenance), the tuning ledgers, the passed backwards-compatibility check and the
            evaluation commit. The design manifest is never edited.
-Usage: python scripts/analysis/step13/step13_manifest.py design | resolve
+Usage: python scripts/analysis/step13/step13_manifest.py design | amend --id A3 | resolve
 """
 import os, sys, pathlib  # bootstrap: make referral_gnn importable from any scripts/ subfolder (or `pip install -e .`)
 sys.path.insert(0, str(next(p for p in pathlib.Path(__file__).resolve().parents if (p / "referral_gnn" / "paths.py").is_file())))
@@ -27,7 +30,8 @@ import numpy as np
 from referral_gnn import step13 as S  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument("stage", choices=["design", "resolve"])
+ap.add_argument("stage", choices=["design", "amend", "resolve"])
+ap.add_argument("--id", default=None, help="amend: the amendment id in STEP13_AMENDMENTS.md (e.g. A3)")
 ap.add_argument("--draft", action="store_true", help="design only: allow a dirty worktree and write design_manifest_DRAFT.json")
 ap.add_argument("--inputs", default="prepared_data/three_node_v5/model_inputs_PRIVATE.pkl")
 args = ap.parse_args()
@@ -124,6 +128,24 @@ if args.stage == "design":
     json.dump(man, open(path, "w"), indent=1)
     print(f"wrote {path}: B2 = {b2}, rare dx ids {rare}, feature columns " + ", ".join(f"{k} {len(v)}" for k, v in fsets.items()))
 
+elif args.stage == "amend":
+    dpath = os.path.join(OUT, "design_manifest.json"); assert os.path.exists(dpath), "design manifest first"
+    assert args.id and f"## {args.id} " in open(os.path.join(root, "STEP13_AMENDMENTS.md")).read(), f"{args.id} is not in STEP13_AMENDMENTS.md"
+    apath = os.path.join(OUT, "amendments", f"{args.id}.json"); os.makedirs(os.path.dirname(apath), exist_ok=True)
+    if os.path.exists(apath): sys.exit(f"REFUSED: {apath} exists already.")
+    if os.path.exists(os.path.join(OUT, "resolved_manifest.json")) or glob.glob(os.path.join(OUT, "eval", "*_step13_verdicts.json")):
+        sys.exit("REFUSED: amendments are recorded before the resolved manifest and any outcome evaluation.")
+    design = json.load(open(dpath)); prior = S.amendment_records(OUT)
+    assert sha(os.path.join(root, "STEP13_AMENDMENTS.md")) == S.AMENDMENTS_SHA256, "STEP13_AMENDMENTS.md differs from step13.AMENDMENTS_SHA256"
+    assert design["tests_record"] == S.tests_record(), "this amendment record does not cover changed test definitions"
+    code = code_record(False)
+    exp = S.expected_code(design, prior); now = {**S.current_code(str(REPO)), **code["scripts_sha256"]}
+    changed = {f: {"before": exp.get(f), "after": now.get(f)} for f in sorted(set(exp) | set(now)) if exp.get(f) != now.get(f)}
+    rec = {"id": args.id, "seq": len(prior) + 1, "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "amendments_sha256": S.AMENDMENTS_SHA256,
+           "commit": code["commit"], "tree": code["tree"], "files": changed, "design_manifest_sha256": sha(dpath)}
+    json.dump(rec, open(apath, "w"), indent=1)
+    print(f"wrote {apath}: commit {code['commit'][:7]}, changed files {list(changed)}")
+
 else:
     dpath = os.path.join(OUT, "design_manifest.json"); assert os.path.exists(dpath), "design manifest first"
     rpath = os.path.join(OUT, "resolved_manifest.json")
@@ -131,7 +153,9 @@ else:
     design = json.load(open(dpath))
     compat = json.load(open(os.path.join(OUT, "compat.json"))); assert compat["passed"], "the backwards-compatibility check must pass first"
     assert design["tests_record"] == S.tests_record(), "test definitions in step13.py differ from the design manifest"
-    drift = S.code_drift(design, str(REPO)); assert not drift, f"code changed since the design manifest: {drift}"
+    AMEND = S.amendment_records(OUT)
+    assert S.expected_amendments_sha256(design, AMEND) == S.AMENDMENTS_SHA256 == sha(os.path.join(root, "STEP13_AMENDMENTS.md")), "amendments not recorded"
+    drift = S.code_drift(design, str(REPO), AMEND); assert not drift, f"code changed since the design manifest and its amendments: {drift}"
     from referral_gnn.three_node_model import ThreeNodeConfig
     expect_cfg = {"graph": {}, "ngp": {"use_graph": False, "pcp_in_scorer": True}, "gnn_nohist": {a: True for a in S.HIST_ABL},
                   "ngp_nohist": {"use_graph": False, "pcp_in_scorer": True, **{a: True for a in S.HIST_ABL}}}
@@ -174,7 +198,7 @@ else:
     sensitivity = {nm: os.path.basename(resolve_run(f).rstrip("/")) for nm, f in S.SENSITIVITY_RUNS.items()}
     ledgers = {f"mlp_{fs}": json.load(open(os.path.join(OUT, f"mlp_{fs}_tuning.json"))) for fs in ("flat_rf", "full")}
     man = {"step": "13", "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "design_manifest_sha256": sha(dpath), "cells": cells, "runs": runs,
-           "sensitivity": sensitivity,
+           "sensitivity": sensitivity, "amendments": [{"id": r["id"], "seq": r["seq"], "commit": r["commit"]} for r in AMEND],
            "tuning_ledgers": {"lgbm": {c: runs[cells[c]["42"]]["tuning"] for c in ("flat_rf", "info_nohist", "info", "insmatch")}, **ledgers},
            "compat": {"path": os.path.join(OUT, "compat.json"), "sha256": sha(os.path.join(OUT, "compat.json"))},
            "evaluation_code": code_record(False),

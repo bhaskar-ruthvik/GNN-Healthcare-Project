@@ -18,7 +18,7 @@ import numpy as np
 PLAN = "Implementation/STEP13_GRAPH_VALUE_PLAN.md"
 PLAN_SHA256 = "42c11662195dbba811115e704f53c4f15181c343dbbaa2d11c3b64468af36809"
 AMENDMENTS = "Implementation/STEP13_AMENDMENTS.md"   # A1 (fine H3 grid), A2 (rare slice descriptive), both 2026-10-21, before any STEP13 run
-AMENDMENTS_SHA256 = "6c57ee94035446c8d24864982456a0f6861a9887004a9ac968b55836c96a6b45"
+AMENDMENTS_SHA256 = "00c40d259f9ef54ba8dfce22f402b6223f0caebde91cf7886b9120334f23fffa"   # after A3 (compat criterion), 2026-10-21
 SEEDS = (42, 1, 7)                     # paired by seed ID across models (a convention, not shared randomness)
 DRAWS = 2000
 RNG_PCP, RNG_SEED = 20261021, 20261022
@@ -239,15 +239,44 @@ def summarise(two, undefined, alpha=ALPHA, delta=DELTA):
             "undefined_share": float(bad.mean()), "left_out_of_ci_share": float((~ok).mean())}
 
 
-def code_drift(design, repo):
-    """Files whose SHA-256 differs from the design manifest's record (library and every STEP13 script); [] when unchanged."""
+def current_code(repo):
+    """SHA-256 of every library file (referral_gnn/<file>.py → key referral_gnn/<file>.py) in the repository."""
     import glob
     import hashlib
     import os
-    h = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
-    lib = {os.path.basename(p): h(p) for p in sorted(glob.glob(os.path.join(repo, "referral_gnn", "*.py")))}
-    out = [f"referral_gnn/{k}" for k in sorted(set(lib) | set(design["code"]["library_files_sha256"])) if lib.get(k) != design["code"]["library_files_sha256"].get(k)]
-    out += [s_ for s_, v in design["code"]["scripts_sha256"].items() if not os.path.exists(os.path.join(repo, s_)) or h(os.path.join(repo, s_)) != v]
+    return {f"referral_gnn/{os.path.basename(p)}": hashlib.sha256(open(p, "rb").read()).hexdigest()
+            for p in sorted(glob.glob(os.path.join(repo, "referral_gnn", "*.py")))}
+
+
+def amendment_records(manifests_dir):
+    """Post-design amendment records (runs/analysis/step13/amendments/*.json), in the order they were recorded."""
+    import glob
+    import json
+    import os
+    return sorted((json.load(open(p)) for p in glob.glob(os.path.join(manifests_dir, "amendments", "*.json"))), key=lambda r: r["seq"])
+
+
+def expected_code(design, records=()):
+    """{repo path: SHA-256} the code must have now: the design manifest's record, updated by each recorded amendment."""
+    exp = {f"referral_gnn/{k}": v for k, v in design["code"]["library_files_sha256"].items()}
+    exp.update(design["code"]["scripts_sha256"])
+    for r in records: exp.update({f: x["after"] for f, x in r["files"].items()})
+    return exp
+
+
+def expected_amendments_sha256(design, records=()):
+    return records[-1]["amendments_sha256"] if records else design["amendments_sha256"]
+
+
+def code_drift(design, repo, records=()):
+    """Files whose SHA-256 differs from the design manifest's record (library and every STEP13 script), after the recorded
+    post-design amendments; [] when unchanged."""
+    import hashlib
+    import os
+    exp = expected_code(design, records); now = current_code(repo)
+    out = [f for f in sorted(set(now) | {k for k in exp if k.startswith("referral_gnn/")}) if now.get(f) != exp.get(f)]
+    out += [f for f, v in exp.items() if not f.startswith("referral_gnn/")
+            and (not os.path.exists(os.path.join(repo, f)) or hashlib.sha256(open(os.path.join(repo, f), "rb").read()).hexdigest() != v)]
     return out
 
 

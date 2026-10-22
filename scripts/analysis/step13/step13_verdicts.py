@@ -37,9 +37,11 @@ design = json.load(open(os.path.join(args.manifests, "design_manifest.json")))
 resolved = json.load(open(os.path.join(args.manifests, "resolved_manifest.json")))
 assert design["plan_sha256"] == S.PLAN_SHA256 and resolved["design_manifest_sha256"] == sha(os.path.join(args.manifests, "design_manifest.json")), \
     "manifests do not match the frozen plan / each other"
-assert design["amendments_sha256"] == S.AMENDMENTS_SHA256, "amendments differ from the design manifest"
+AMEND = S.amendment_records(args.manifests)
+assert S.expected_amendments_sha256(design, AMEND) == S.AMENDMENTS_SHA256 == sha(os.path.join(root, "STEP13_AMENDMENTS.md")), \
+    "amendments differ from the design manifest and its recorded amendments"
 assert design["tests_record"] == S.tests_record(), "test definitions in referral_gnn/step13.py differ from the design manifest"
-drift = S.code_drift(design, str(code_file("referral_gnn").parent)); assert not drift, f"code changed since the design manifest: {drift}"
+drift = S.code_drift(design, str(code_file("referral_gnn").parent), AMEND); assert not drift, f"code changed since the design manifest: {drift}"
 SMOKE = args.draws != S.DRAWS                                       # smoke runs never touch the single-use verdict file
 out_path = os.path.join(args.eval_dir, f"{args.split}_step13_verdicts" + (f"_SMOKE{args.draws}" if SMOKE else "") + ".json")
 assert SMOKE or not os.path.exists(out_path), f"{out_path} exists; verdicts are written once per split"
@@ -67,6 +69,7 @@ known = mi.enc_insurer[enc] >= 0
 codes, uniq = pd.factorize(pcp); B = S.Boot(codes, len(uniq), args.draws)
 t0 = time.time(); out = {"split": args.split, "n_referrals": int(D.n_ref), "n_pcps": int(len(uniq)), "cohort_enc_sha256": cohort_sha, "draws": args.draws,
                          "plan_sha256": S.PLAN_SHA256, "design_manifest_sha256": resolved["design_manifest_sha256"],
+                         "amendments": [{"id": r["id"], "commit": r["commit"]} for r in AMEND],
                          "resolved_manifest_sha256": sha(os.path.join(args.manifests, "resolved_manifest.json")), "dump_sha256": sha(D.path)}
 
 # ---- 1. native lenses of every cell (before any matching) ---------------------------------------------------------------

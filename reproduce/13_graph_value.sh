@@ -4,7 +4,8 @@
 #   check      hand-calculated feature check (aggregates only)
 #   design     design manifest (needs a clean, committed worktree; before any STEP13 run)
 #   train      10 GNN runs (resumable), 4 LightGBM families, 2 MLP families; stops before a job when on battery (ALLOW_BATTERY=1 overrides)
-#   compat     re-score the existing checkpoints on 2018 and compare with STEP12
+#   amend ID   record a post-design amendment of STEP13_AMENDMENTS.md (clean commit; before resolve)
+#   compat     re-score the existing checkpoints on 2018 and compare with STEP12 (criterion per amendment A3)
 #   resolve    resolved manifest (runs, checkpoints, tuning ledgers, compat result, evaluation commit)
 #   eval2018   one 2018 evaluation of every cell's runs with candidate-score dumps, then the 2018 verdicts
 #   decide     decision entry hashing the 2018 outputs (unlocks the single 2019 pass)
@@ -32,6 +33,7 @@ case ${1:?stage} in
               if partial s13_mlp_${FS}_h; then echo "REFUSED: a part-finished MLP $FS tuning exists; rename its runs *_INCOMPLETE first"; exit 1; fi
               step "STEP13 MLP $FS"; py "$S/train/step13_mlp.py" --feature-set $FS --mode tune
             done ;;
+  amend)    step "STEP13 amendment ${2:?amendment id}"; py "$S/analysis/step13/step13_manifest.py" amend --id "$2" ;;
   compat)   step "STEP13 backwards-compatibility check"; py "$S/analysis/step13/step13_compat.py" ;;
   resolve)  step "STEP13 resolved manifest"; py "$S/analysis/step13/step13_manifest.py" resolve ;;
   eval2018) step "STEP13 2018 evaluation"; EVAL --split validation --step 13 --dump-scores --out $E $(cell_runs)
