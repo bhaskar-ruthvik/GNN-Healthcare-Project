@@ -1,6 +1,6 @@
 # Methods appendix
 
-*Referral GNN, as of 23 October 2026 (sections F and G added: Steps 13 and 14).*
+*Referral GNN, as of 23 October 2026 (sections F and G added: what the graph adds, and the steered recommender with graph summaries).*
 
 This file gathers in one place the definitions used throughout the write-up, the decks and the verification workbook. Authoritative sources, which this summarises:
 - `docs/ARCHITECTURE.md`
@@ -28,7 +28,7 @@ This file gathers in one place the definitions used throughout the write-up, the
 **First-time vs repeat.**
 - A *first-time referral* is one where the patient had no earlier visit to that specialist in the data.
 - *Repeat* events (57%) are follow-ups and dominate naive accuracy.
-- All reported results from Step 10 onward are on first-time referrals.
+- All reported results, once the evaluation metrics were fixed, are on first-time referrals.
 
 **Split (chronological).**
 - Training: events up to 31 Dec 2017.
@@ -51,7 +51,7 @@ This file gathers in one place the definitions used throughout the write-up, the
 - Node types: PCP, Encounter, Specialist.
 - Edges: PCP → HAS_ENCOUNTER → Encounter, and Encounter → REFERRED_TO → Specialist, each with reverse edges.
 - No Patient node: the patient's demographics, insurer and strictly-earlier history summaries are attached to each encounter.
-- No same-patient temporal (PRECEDES) edges in the final model; they added nothing measurable in Step 7.
+- No same-patient temporal (PRECEDES) edges in the final model; they added nothing measurable when tested during model development.
 
 **Leakage control, applied to each referral (query) on day d:**
 - The graph contains only encounters before the cutoff, together with their referral edges.
@@ -99,22 +99,22 @@ This file gathers in one place the definitions used throughout the write-up, the
 - *Random:* exact expectation over the eligible set.
 - *MIPS-sorted* and *distance-sorted.*
 
-**Simple hybrids (Step 12b).** All score combinations use z-scores taken within each referral's candidate list.
+**Simple hybrids.** All score combinations use z-scores taken within each referral's candidate list.
 - *Score blends:* (1 − w)·z(GNN) + w·z(table), with w ∈ {0.25, 0.5, 0.75}.
 - *Gate:* w(q) = sigmoid(θ·[PCP history, familiar share, age, eligible-set size]). Fitted by listwise likelihood and cross-fitted over two fixed halves of the PCPs.
 - *Reciprocal rank fusion:* 1/(60 + rank).
 - *Split lists:* the GNN's top 1 or top 2, then the table.
 - *GNN encoding + variables → logistic regression:* the GNN scorer's last hidden layer (128 values) plus 18 readable variables, with the GNN frozen.
-- *Flattened graph → LightGBM:* 117 table columns plus 88 metapath-mean features (A1 specialist ← encounters, A2 specialist ← encounters ← PCPs, A3 PCP → encounters → specialists), using referrals before the cutoff and no counts.
+- *Flattened graph → LightGBM:* 117 table columns plus 88 averaged neighbourhood features (over each specialist's past encounters; over the PCPs of those encounters; and over the specialists the referring PCP has used), using referrals before the cutoff and no counts.
 
-**Heavier hybrids (Step 12d).**
+**Heavier hybrids (models trained together).**
 - *Table-offset GNN:* score = GNN + β·table score, with β learned.
 - *Stacking:* LightGBM with an out-of-fold GNN-score column. The GNN score comes from 3 time-fold models, centred per query, with a scale check against the full model.
 - *Dual encoder:* a GNN plus a tabular tower, concatenated into the scorer.
 
 ## D. Evaluation
 
-**Primary cohort (STEP10 §2.1).** First-time referrals, after excluding:
+**Primary cohort.** First-time referrals, after excluding:
 - unknown specialty;
 - facility-based "non-choice" specialties;
 - non-specific specialties;
@@ -141,13 +141,13 @@ The chosen specialist is in the set for about 87% of referrals.
 | Load (top pick) | the top pick is among the busiest 10%: above the specialty's 90th percentile of first-time referrals in the training years (468 specialists). Actual choices: 29.9% (2018), 26.4% (2019) |
 | Load (top 5 / list slots) | share of the list on busiest-10% specialists |
 | New to the PCP | share of the list the PCP had never referred to before |
-| MIPS gain | mean yardstick MIPS of the list − MIPS of the chosen specialist (points). A cautious bound (imputed at 0, ranges at their worst) is reported in Step 10 |
+| MIPS gain | mean yardstick MIPS of the list − MIPS of the chosen specialist (points). A cautious bound (imputed at 0, ranges at their worst) is reported with the quality-weight analysis |
 | Travel | patient → recommended specialist distance (mean or median as labelled) |
 | Also reported | "good" new picks (new, higher MIPS than chosen, not busiest); insurer-feasibility of new picks |
 
 **30% quality weight.**
 - Rank by 0.7·z(model score) + 0.3·z(as-of MIPS), z-scored within the candidate list.
-- Chosen in Step 10 by a pre-registered rule: maximise MIPS gain subject to fit ≥ PCP habit and distance no worse than practice.
+- Chosen once, on 2018, by a pre-registered rule: maximise MIPS gain subject to fit ≥ PCP habit and distance no worse than practice.
 
 **Steering.**
 - Final score = (score at the 30% weight) + a·[new to the PCP] − b·[busiest 10%].
@@ -158,7 +158,7 @@ The chosen specialist is in the set for about 87% of referrals.
 **Uncertainty.**
 - 95% intervals from a PCP-cluster bootstrap (2,000 draws; 119 PCPs), paired when comparing models.
 - Draws that contain no PCP from a small group are dropped (fixed 16 Oct; results changed by at most 0.001).
-- Step 6–9 analyses used patient-cluster bootstraps.
+- Analyses from the early model-development phase used patient-cluster bootstraps.
 
 **Matched fit.**
 - When two models differ in fit, the more accurate one is diluted with random picks (a random mixture) until fits match, and load is then compared.
@@ -175,92 +175,95 @@ The chosen specialist is in the set for about 87% of referrals.
 **Held-out year discipline.**
 - Each analysis is frozen in a plan before running and reviewed independently.
 - Every 2019 pass needs a decision entry with the SHA-256 of each 2018 output (`runs/analysis/step10_decisions.json`). The evaluator refuses otherwise, and a 2019 pass runs once.
-- 2019 was first inspected in Step 6 and re-evaluated for later steps. Each re-evaluation is disclosed and was made with the configuration frozen beforehand.
+- 2019 was first inspected during early model development and re-evaluated for later analyses. Each re-evaluation is disclosed and was made with the configuration frozen beforehand.
 
-## E. Pre-registered experiments (Step 12)
+## E. Pre-registered experiments: why the graph model concentrates less, and combining the models
 
-- **STEP12a (congestion mechanism).**
-  - Gate: a neural model with all PCP-history inputs removed vs the table, at matched fit.
-  - Hypotheses H1 (model class), H2 (objective), H3 (volume attributes), H4 (tree capacity), H5 (volume scaling).
-  - Signed one-sided contrasts with Holm adjustment. "Supported" requires an effect ≥ R/2, Holm p < 0.05, beyond the noise band and positive in every seed pairing.
-  - Amendment A1 (post hoc, disclosed): a seed bootstrap and a volume-blind ("strict") attribute set.
-- **STEP12b (simple hybrids).** Pre-stated "combines the strengths" rule versus the GNN:
+- **Why the graph model concentrates less.**
+  - Gate: a neural model with all history inputs removed vs the table, at matched fit.
+  - Five candidate explanations, each a signed one-sided test: model class (tree vs neural), training objective, specialist volume attributes, tree capacity, and how volume is scaled.
+  - Holm adjustment. "Supported" requires an effect of at least half the reference gap, Holm p < 0.05, a size beyond the run-to-run noise band, and the same sign in every seed pairing.
+  - Disclosed post hoc addition: a seed-level bootstrap and a volume-blind attribute set.
+- **Simple hybrids.** Pre-stated "combines the strengths" rule versus the GNN:
   - load (top pick and top 5) not worse;
   - new-to-PCP higher by ≥ 5 points with CI > 0;
   - MIPS not worse;
   - fit ≥ min − 1 point.
-- **STEP12c / 12d (complementarity, steering, heavier hybrids).** Frontier comparison with no pass/fail. For 2019, the setting and the criteria were recorded first (`runs/analysis/step12c/preregistration_2019.json`).
-- **STEP12e (top-10/15).** The fixed 12c setting, not re-tuned (`Implementation/STEP12E_TOPK_PLAN.md`).
+- **Complementarity, steering and heavier hybrids.** Frontier comparison with no pass/fail. For 2019, the setting and the criteria were recorded first (`runs/analysis/step12c/preregistration_2019.json`).
+- **Longer lists (top 10 / 15).** The steered blend's 2018 setting, not re-tuned (`STEP12E_TOPK_PLAN.md`).
 
-## F. Step 13: what the graph adds (pre-registered)
+## F. What the graph adds (pre-registered)
 
-**Question.** Where does a graph model add value over information-matched non-graph models?
+**Question.** Where does a graph model add value over models with the same information but no message passing?
 
-**Cells** (3 seeds each, 42 / 1 / 7, paired by seed ID; the Graph cell reuses the Step 10 seeds 42 and 1 and adds seed 7):
+**Models** (3 seeds each, 42 / 1 / 7, paired by seed ID; the full GNN reuses its two original seeds and adds a third):
 
-| Cell | Definition |
+| Model | Definition |
 |---|---|
-| Graph | the final GNN |
-| NG+P | the GNN without message passing; the scorer also reads the query PCP's own encoding |
-| G | no message passing, no PCP encoding, explicit history removed (the Step 12a gate runs) |
-| GNN-nohist, NG+P-nohist | Graph and NG+P without explicit history: patient-history block, predecessor gap, PCP→specialist referral history, patient–specialist prior, insurer history |
-| Table | pure-tabular LightGBM (117 columns) |
-| Flat-RF | LightGBM on the 117 columns + unweighted means over what a 2-layer pass reaches, with the attributes the GNN reads |
-| MLP-RF | an MLP on the Flat-RF row |
-| Info-table-nohist | Flat-RF aggregates + 3-hop PCP→specialist means + graph counts, no explicit history |
-| Info-table | Info-table-nohist + all explicit history |
-| MLP-info | an MLP on the Info-table row |
-| Ins-match | Info-table-nohist + the query insurer's share of the candidate's past encounters |
+| GNN | the final graph model |
+| No message passing, with PCP | the GNN without message passing; the scorer also reads the referring PCP's own encoding |
+| No message passing, no PCP, no history | reused from the congestion study; reported beside, not tested |
+| GNN without history; no message passing (with PCP) without history | the two models above without explicit history: the patient's visit-history summaries, the gap since the previous visit, the PCP's earlier referrals to the specialist, the patient's earlier visits to the specialist, insurer history |
+| Pure table | LightGBM on the 117 pure-tabular columns |
+| Table + graph summaries | LightGBM on the 117 columns plus unweighted means over exactly what two GNN layers reach, with the attributes the GNN reads (304 columns) |
+| MLP on graph summaries | an MLP on the same row |
+| Richer table without history | the graph summaries plus three-hop means (the specialists the referring PCP has used) and graph counts; no explicit history |
+| Richer table | the above plus all explicit history |
+| MLP on the richer table | an MLP on the richer-table row |
+| Insurer-share control | the richer table without history plus the query insurer's share of the candidate's past encounters |
 
-**The Flat-RF aggregates** (304 columns in all):
-- *A1:* specialist ← past encounters: context, severity, diagnosis flags, disease-category distribution, encounter-categorical one-hots, and the means of the 16 sinusoidal time-encoding components;
-- *A2:* specialist ← encounters ← PCPs: the PCP encoder inputs;
-- *B1:* query ← PCP ← the PCP's past encounters: the same attributes as A1;
-- the category cosine and age difference, plus no-history flags.
+**The graph summaries:**
+- the candidate specialist's past encounters: context, severity, diagnosis flags, disease-category distribution, encounter categoricals, and the means of the 16 sinusoidal time-encoding components;
+- the PCPs of those encounters: the PCP attributes the GNN reads;
+- the referring PCP's past encounters: the same attributes as the specialist's;
+- the category match and age difference between the referral and the specialist's past cases, plus no-history flags.
 
 A hand-calculated check matched every aggregate to within 1.2e-7.
 
 **MLP.**
 - Two hidden layers, ReLU, dropout. Width and dropout tuned on {128, 256} × {0.1, 0.3} at seed 42; the chosen configuration is then trained at seeds 1 and 7.
-- Same 21-row bundles, softmax loss and Adam settings as the GNN.
-- Checkpoint selected on first-time validation MRR (selection only).
+- Same training rows, softmax loss and Adam settings as the GNN.
+- Checkpoint selected on a 2018 selection sample (selection only).
 
-**Claims and components** (each one-sided, predicted > 0; native fit at the 30% weight unless stated):
-- **H1a.** Graph − NG+P-nohist (prerequisite); GNN-nohist − NG+P-nohist; joint half-gap.
-- **H1b.** GNN-nohist − X for X ∈ {Flat-RF, MLP-RF, Table, Info-table-nohist}.
-- **H2.** Graph − C, with C ∈ {NG+P, Info-table, MLP-info}, in two slices, absolute and interaction:
-  - low-history PCPs: ≤ 951 prior referrals;
-  - thin-network PCPs: ≤ 519 distinct specialists so far, the 2018 lower tertile.
-- **H3.** GNN-nohist − X for X ∈ {NG+P-nohist, Flat-RF, MLP-RF, Info-table-nohist}, on the share of new-to-PCP top-5 slots whose specialist had seen the patient's insurer.
-  - Each model is steered to the same newness, 35.3%, by a ∈ {−0.60, …, 1.00} (step 0.01).
-  - Re-matched in every bootstrap draw; ±1 point tolerance; the 2018 setting is frozen for 2019.
+**Claims** (each comparison one-sided, predicted > 0; fit at the 30% weight unless stated):
+1. **Message passing recovers what explicit history provides.** Three comparisons:
+   - the full GNN − no message passing without history (must be > 0 for the question to apply);
+   - GNN without history − no message passing without history;
+   - the GNN without history recovers at least half of that full gap.
+2. **Learned propagation beats fixed summaries of the same reach.** GNN without history − each of: table + graph summaries, MLP on graph summaries, pure table, richer table without history.
+3. **The graph helps most for low-history PCPs** (≤ 951 earlier referrals). The GNN − each of {no message passing with PCP, richer table, MLP on the richer table}, both within the group and as the difference between the group and the rest.
+4. **… and for thin-network PCPs** (≤ 519 distinct specialists so far, the 2018 lower tertile). Same comparisons.
+5. **The GNN's new suggestions are more often insurer-compatible at equal newness.**
+   - GNN without history − each of {no message passing without history, table + graph summaries, MLP on graph summaries, richer table without history}.
+   - The outcome is the share of new-to-PCP top-5 suggestions whose specialist had seen the patient's insurer.
+   - Each model is steered to the same newness, 35.3%, by a ∈ {−0.60, …, 1.00} (step 0.01). It is re-matched in every bootstrap draw with a ±1 point tolerance, and the 2018 setting is frozen for 2019.
 
 **Statistics.**
-- Paired two-level bootstrap, 2,000 draws: seed IDs and PCPs are resampled, the same draws for every model.
-- One-sided p = (1 + #draws ≤ 0 or undefined) / (1 + draws). A claim's p is the maximum over its components; Holm across 5 claims.
-- "Supported" also requires every component's per-seed effect to be > 0 for all 3 seeds.
-- Gates: inconclusive if more than 5% of draws are undefined, or if a model reaches the newness tolerance in fewer than 95% of draws.
-- 2019 is evaluated once, after a decision entry hashes the 2018 outputs; it is reported as directional replication.
+- Paired two-level bootstrap, 2,000 draws: seed IDs and PCPs are resampled, with the same draws for every model.
+- One-sided p = (1 + #draws ≤ 0 or undefined) / (1 + draws). A claim's p is the maximum over its comparisons; Holm across the 5 claims.
+- "Supported" also requires every comparison's per-seed effect to be > 0 for all 3 seeds.
+- A claim is inconclusive if more than 5% of draws are undefined, or if a model reaches the newness tolerance in fewer than 95% of draws.
+- 2019 is evaluated once, after a decision entry hashes the 2018 outputs, and is reported as directional replication.
 
-**Amendments** (all written before any outcome was seen):
-- *A1:* finer matching grid.
-- *A2:* rare-condition slice made descriptive (9 referrals in 2018), so Holm runs over 5 claims, not 6.
-- *A3:* the reproduction check of the existing models accepts float32 rounding (scores within 1e-5) when every top-5 list and lens is identical.
+**Changes made before any outcome was seen** (dated, in `STEP13_AMENDMENTS.md`):
+- a finer steering grid for the newness matching;
+- a rare-condition group made descriptive, because only 9 referrals in 2018 qualify, so the correction runs over 5 claims, not 6;
+- the reproduction check of earlier models accepts float32 rounding (scores within 1e-5) when every top-5 list and metric is identical.
 
-The design manifest, the resolved manifest and the amendment records hash the code, the inputs and every run.
+Manifests hash the code, the inputs and every run.
 
-**Post hoc matched-fit comparison** (descriptive; after the 2019 pass). Top-pick load and newness between pairs of cells, matched on fit by the Step 12a random-mixture method, with a PCP bootstrap (`step13_matched_load.py`).
+**Post hoc matched-fit comparison** (descriptive; run after the 2019 pass). Top-pick load and newness between pairs of models, matched on fit by the random-mixture method of the congestion study, with a PCP bootstrap (`step13_matched_load.py`).
 
-## G. Step 14: the steered recommender with the graph-feature table (pre-registered setting)
+## G. The steered recommender with graph summaries (setting chosen on 2018)
 
-- **Families:**
-  - single models: GNN, Table, Flat-RF;
-  - equal blends: GNN + Table (the Step 12c blend) and GNN + Flat-RF;
-  - a three-way blend 0.7·z((z(GNN) + z(Table) + z(Flat-RF)) / 3) + 0.3·z(MIPS).
-- **Steering:** + a·[new to the PCP] − b·[busiest 10%] over the Step 12c grid (64 settings). Seed pairings by ID.
-- **2018 rule:** per family, the setting with the lowest top-pick load among those with fit ≥ 45% and newness ≥ 35% in all three pairings. The proposed recommender is the family with the lowest such load.
-- **2019** is checked once, at the 2018 settings. "Improves on the Step 12c blend" means lower top-pick load in all three pairings, with fit and newness within 1 point. A paired PCP bootstrap is reported for the differences.
-- **Disclosure:** the family was motivated by Step 13 results that had seen 2019.
+- **Candidates:**
+  - single models: GNN, pure table, table + graph summaries;
+  - equal blends: GNN + table (the earlier steered blend) and GNN + table with graph summaries;
+  - a three-way blend: 0.7·z((z(GNN) + z(table) + z(table with graph summaries)) / 3) + 0.3·z(MIPS).
+- **Steering:** + a·[new to the PCP] − b·[busiest 10%] over the same 64-setting grid as the earlier steered blend; seed pairings by ID.
+- **2018 rule:** per candidate, the setting with the lowest top-pick load among those with fit ≥ 45% and newness ≥ 35% in all three pairings. The proposed recommender is the candidate with the lowest such load.
+- **2019** is checked once, at the 2018 settings. "Improves on the earlier steered blend" means lower top-pick load in all three pairings, with fit and newness within 1 point. A paired PCP bootstrap is reported for the differences.
+- **Disclosure:** the idea came from the graph-value results, which had seen 2019.
 
 ## H. Software and reproducibility
 
