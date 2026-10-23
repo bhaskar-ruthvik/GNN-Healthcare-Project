@@ -1,12 +1,13 @@
 # Methods appendix
 
-*Referral GNN, as of 21 October 2026.*
+*Referral GNN, as of 23 October 2026 (sections F and G added: Steps 13 and 14).*
 
 This file gathers in one place the definitions used throughout the write-up, the decks and the verification workbook. Authoritative sources, which this summarises:
 - `docs/ARCHITECTURE.md`
 - `docs/STEP10_PROTOCOL.md`
 - `docs/STEP11_PLAN.md`
 - `docs/STEP12*_PLAN.md`
+- `docs/STEP13_GRAPH_VALUE_PLAN.md`, `docs/STEP13_AMENDMENTS.md`, `docs/STEP14_GRAPH_FEATURE_BLEND_PLAN.md`
 
 (all in the code repository), and the project's running log.
 
@@ -191,7 +192,77 @@ The chosen specialist is in the set for about 87% of referrals.
 - **STEP12c / 12d (complementarity, steering, heavier hybrids).** Frontier comparison with no pass/fail. For 2019, the setting and the criteria were recorded first (`runs/analysis/step12c/preregistration_2019.json`).
 - **STEP12e (top-10/15).** The fixed 12c setting, not re-tuned (`Implementation/STEP12E_TOPK_PLAN.md`).
 
-## F. Software and reproducibility
+## F. Step 13: what the graph adds (pre-registered)
+
+**Question.** Where does a graph model add value over information-matched non-graph models?
+
+**Cells** (3 seeds each, 42 / 1 / 7, paired by seed ID; the Graph cell reuses the Step 10 seeds 42 and 1 and adds seed 7):
+
+| Cell | Definition |
+|---|---|
+| Graph | the final GNN |
+| NG+P | the GNN without message passing; the scorer also reads the query PCP's own encoding |
+| G | no message passing, no PCP encoding, explicit history removed (the Step 12a gate runs) |
+| GNN-nohist, NG+P-nohist | Graph and NG+P without explicit history: patient-history block, predecessor gap, PCP→specialist referral history, patient–specialist prior, insurer history |
+| Table | pure-tabular LightGBM (117 columns) |
+| Flat-RF | LightGBM on the 117 columns + unweighted means over what a 2-layer pass reaches, with the attributes the GNN reads |
+| MLP-RF | an MLP on the Flat-RF row |
+| Info-table-nohist | Flat-RF aggregates + 3-hop PCP→specialist means + graph counts, no explicit history |
+| Info-table | Info-table-nohist + all explicit history |
+| MLP-info | an MLP on the Info-table row |
+| Ins-match | Info-table-nohist + the query insurer's share of the candidate's past encounters |
+
+**The Flat-RF aggregates** (304 columns in all):
+- *A1:* specialist ← past encounters: context, severity, diagnosis flags, disease-category distribution, encounter-categorical one-hots, and the means of the 16 sinusoidal time-encoding components;
+- *A2:* specialist ← encounters ← PCPs: the PCP encoder inputs;
+- *B1:* query ← PCP ← the PCP's past encounters: the same attributes as A1;
+- the category cosine and age difference, plus no-history flags.
+
+A hand-calculated check matched every aggregate to within 1.2e-7.
+
+**MLP.**
+- Two hidden layers, ReLU, dropout. Width and dropout tuned on {128, 256} × {0.1, 0.3} at seed 42; the chosen configuration is then trained at seeds 1 and 7.
+- Same 21-row bundles, softmax loss and Adam settings as the GNN.
+- Checkpoint selected on first-time validation MRR (selection only).
+
+**Claims and components** (each one-sided, predicted > 0; native fit at the 30% weight unless stated):
+- **H1a.** Graph − NG+P-nohist (prerequisite); GNN-nohist − NG+P-nohist; joint half-gap.
+- **H1b.** GNN-nohist − X for X ∈ {Flat-RF, MLP-RF, Table, Info-table-nohist}.
+- **H2.** Graph − C, with C ∈ {NG+P, Info-table, MLP-info}, in two slices, absolute and interaction:
+  - low-history PCPs: ≤ 951 prior referrals;
+  - thin-network PCPs: ≤ 519 distinct specialists so far, the 2018 lower tertile.
+- **H3.** GNN-nohist − X for X ∈ {NG+P-nohist, Flat-RF, MLP-RF, Info-table-nohist}, on the share of new-to-PCP top-5 slots whose specialist had seen the patient's insurer.
+  - Each model is steered to the same newness, 35.3%, by a ∈ {−0.60, …, 1.00} (step 0.01).
+  - Re-matched in every bootstrap draw; ±1 point tolerance; the 2018 setting is frozen for 2019.
+
+**Statistics.**
+- Paired two-level bootstrap, 2,000 draws: seed IDs and PCPs are resampled, the same draws for every model.
+- One-sided p = (1 + #draws ≤ 0 or undefined) / (1 + draws). A claim's p is the maximum over its components; Holm across 5 claims.
+- "Supported" also requires every component's per-seed effect to be > 0 for all 3 seeds.
+- Gates: inconclusive if more than 5% of draws are undefined, or if a model reaches the newness tolerance in fewer than 95% of draws.
+- 2019 is evaluated once, after a decision entry hashes the 2018 outputs; it is reported as directional replication.
+
+**Amendments** (all written before any outcome was seen):
+- *A1:* finer matching grid.
+- *A2:* rare-condition slice made descriptive (9 referrals in 2018), so Holm runs over 5 claims, not 6.
+- *A3:* the reproduction check of the existing models accepts float32 rounding (scores within 1e-5) when every top-5 list and lens is identical.
+
+The design manifest, the resolved manifest and the amendment records hash the code, the inputs and every run.
+
+**Post hoc matched-fit comparison** (descriptive; after the 2019 pass). Top-pick load and newness between pairs of cells, matched on fit by the Step 12a random-mixture method, with a PCP bootstrap (`step13_matched_load.py`).
+
+## G. Step 14: the steered recommender with the graph-feature table (pre-registered setting)
+
+- **Families:**
+  - single models: GNN, Table, Flat-RF;
+  - equal blends: GNN + Table (the Step 12c blend) and GNN + Flat-RF;
+  - a three-way blend 0.7·z((z(GNN) + z(Table) + z(Flat-RF)) / 3) + 0.3·z(MIPS).
+- **Steering:** + a·[new to the PCP] − b·[busiest 10%] over the Step 12c grid (64 settings). Seed pairings by ID.
+- **2018 rule:** per family, the setting with the lowest top-pick load among those with fit ≥ 45% and newness ≥ 35% in all three pairings. The proposed recommender is the family with the lowest such load.
+- **2019** is checked once, at the 2018 settings. "Improves on the Step 12c blend" means lower top-pick load in all three pairings, with fit and newness within 1 point. A paired PCP bootstrap is reported for the differences.
+- **Disclosure:** the family was motivated by Step 13 results that had seen 2019.
+
+## H. Software and reproducibility
 
 - Python 3.12.12, torch 2.14.0 (MPS), torch_geometric 2.8.0.post1, LightGBM 4.7.0.
 - Every run writes `run_manifest.json`: input SHA-256, code SHA-256, configuration and seed. Builders refuse to overwrite completed artefacts.

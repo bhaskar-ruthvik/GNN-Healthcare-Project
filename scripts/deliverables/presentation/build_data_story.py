@@ -1,5 +1,5 @@
 """Collect AGGREGATE numbers for the combined story deck (presentation/data_story.json). No referral-, patient- or provider-level values.
-Reuses the week-3 data file (Step 12 results; rebuilt first so it is current) and adds Steps 10–11, STEP12e and context numbers,
+Reuses the week-3 data file (Step 12 results; rebuilt first so it is current) and adds Steps 10–11, STEP12e, STEP13, STEP14 and context numbers,
 each block with its source file ("src").
 Run from anywhere (data under the workspace, see referral_gnn/paths.py):  python3 scripts/deliverables/presentation/build_data_story.py
 """
@@ -65,5 +65,19 @@ d2 = J(f"{OUTD}/data_w2.json")
 out["network"] = {"src": f"{A}/step11_4a/summary.json", **d2["network"]}
 pr = J(f"{A}/step11_3a/probe_summary.json")
 out["masking"] = {"src": f"{A}/step11_3a/probe_summary.json", **{k: {"masked": v["masked embeddings"]["auc"], "unmasked": v["unmasked embeddings"]["auc"], "inputs": v["masked model inputs (LightGBM)"]["auc"]} for k, v in pr.items()}}
+# ---- STEP13 (pre-registered graph-value tests), post hoc matched fit, STEP14 (graph-feature table in the steered recommender) ------
+V13, T13 = J(f"{A}/step13/eval/validation_step13_verdicts.json"), J(f"{A}/step13/eval/test_step13_verdicts.json")
+comps = lambda X, u: [{"name": c["name"], "point": c["point"], "ci": c["ci95"], "p": c["p_one_sided"]} for c in X["units"][u]["components"]]
+out["s13"] = {"src": f"{A}/step13/eval/{{validation,test}}_step13_verdicts.json (plan STEP13_GRAPH_VALUE_PLAN.md + STEP13_AMENDMENTS.md)",
+              "units": {u: {"verdict": V13["units"][u]["verdict"], "p_holm": V13["units"][u]["p_holm"], "slice_n": V13["units"][u].get("slice_n"),
+                            "c2018": comps(V13, u), "c2019": comps(T13, u)} for u in V13["units"]},
+              "native": {"2018": {c: v["mean_over_seeds"] for c, v in V13["native_lenses"].items()}, "2019": {c: v["mean_over_seeds"] for c, v in T13["native_lenses"].items()}},
+              "compat": {yr: {c: v["numerator_slots"] / v["denominator_slots"] for c, v in X["h3_matching"]["composition"].items()} for yr, X in (("2018", V13), ("2019", T13))},
+              "n": {"2018": V13["n_referrals"], "2019": T13["n_referrals"]}}
+out["s13ph"] = {"src": f"{A}/step13/posthoc_matched_load_{{validation,test}}.json (post hoc, descriptive)",
+                **{yr: J(f"{A}/step13/posthoc_matched_load_{sp}.json")["pairs"] for yr, sp in (("2018", "validation"), ("2019", "test"))}}
+C14, R14 = J(f"{A}/step14/choice_2018.json"), J(f"{A}/step14/results_2019.json")
+out["s14"] = {"src": f"{A}/step14/{{choice_2018,results_2019}}.json (plan STEP14_GRAPH_FEATURE_BLEND_PLAN.md)", "proposed": C14["proposed"],
+              "choice": C14["choice"], "y2019": R14["families"], "cmp": R14["comparison_with_B_GT"]}
 json.dump(out, open(f"{OUTD}/data_story.json", "w"), indent=1, default=float)
 print("wrote presentation/data_story.json", {k: (len(v) if isinstance(v, (list, dict)) else v) for k, v in out.items()}, os.path.getsize(f"{OUTD}/data_story.json") // 1024, "KB")

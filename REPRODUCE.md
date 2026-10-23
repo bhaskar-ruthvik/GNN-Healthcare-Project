@@ -22,6 +22,8 @@ Evaluation passes take minutes. The scripts only append: they never overwrite a 
 | Complementarity, steering frontiers, steered blend on 2018 and 2019, group checks (story slides 11–13, 15) | `reproduce/12c_steered_blend.sh` | `runs/analysis/step12c/` |
 | Heavier hybrids (story slide 14) | `reproduce/12d_heavy_hybrids.sh` | `runs/analysis/step12d/` |
 | Steered blend with 10 / 15 names (story slide 13) | `reproduce/12e_topk_hybrids.sh` | `runs/analysis/step12e/` |
+| What the graph adds: pre-registered tests against information-matched models (H1a, H1b, H2, H3), 2018 and 2019 once (story v2 slide 16). Stages: `check`, `design`, `train`, `amend A3`, `compat`, `resolve`, `eval2018`, `decide`, `eval2019` | `reproduce/13_graph_value.sh <stage>` | `runs/analysis/step13/` (manifests, `eval/*_step13_verdicts.json`) |
+| Graph information at matched fit, post hoc (story v2 slide 17); steered recommender with the graph-feature table (story v2 slide 18) | `reproduce/14_graph_feature_blend.sh` | `runs/analysis/step13/posthoc_matched_load_*.json`, `runs/analysis/step14/` |
 | Decks and verification workbook | `reproduce/99_deliverables.sh` | `deliverables/` |
 | Steps 5–9 (earlier MRR-era results, `docs/RESULTS.md`) | `scripts/legacy/` (commands in `archive/run_chains/`) | `runs/analysis/` |
 
@@ -29,7 +31,9 @@ Evaluation passes take minutes. The scripts only append: they never overwrite a 
 
 The code was reorganised into this repository after the results were produced. A check that re-runs the cheap stages
 from the repository against the original inputs and checkpoints, and compares the outputs with the saved results, is
-**pending**. Its outcome will be recorded in `docs/reproduction_check.md`. Training is not repeated: it is long, and MPS is
+**pending**. Its outcome will be recorded in `docs/reproduction_check.md`. Partial evidence so far: the Step 13 compatibility
+stage re-scored the existing Graph (seeds 42, 1), G and Table checkpoints with this repository's code; every top-5 list and lens
+was identical to the Step 12 outputs on all 5,550 referrals (`runs/analysis/step13/compat.json`). Training is not repeated: it is long, and MPS is
 not bit-deterministic. The run manifests record the inputs and code hashes of every model.
 
 ## Shared definitions worth knowing

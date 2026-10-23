@@ -88,7 +88,8 @@ readme = [
     ("30% quality weight", "Unless stated, rankings are 0.7 × z(model score) + 0.3 × z(specialist MIPS as of the referral date), z-scored within each referral's candidate list ('q30' / 'blend0.3')."),
     ("Steering", "Adds a·(new to the PCP) − b·(in the busiest 10%) to the ranking score; both flags are known at referral time. The steered equal blend uses 0.5·z(GNN) + 0.5·z(table), a = 0.3, b = 0.4 (chosen on 2018)."),
     ("Intervals", "95% intervals resample whole PCPs (119 PCPs), unless the sheet says patient-cluster. 'Matched fit' comparisons dilute the more accurate model with random picks until fits match."),
-    ("Seeds", "Models are averaged over seeds; 'pairing' = one GNN run with one table run (GNN s42 / s1 / s42_dup with table s42 / s1 / s7)."),
+    ("Seeds", "Models are averaged over seeds; 'pairing' = one GNN run with one table run (GNN s42 / s1 / s42_dup with table s42 / s1 / s7). Steps 13–14 pair by seed ID (42 / 1 / 7; GNN s7 trained in Step 13)."),
+    ("Steps 13–14", "S13_GraphValue: pre-registered tests of what the graph adds (information-matched controls). S13_MatchedFit: post hoc, descriptive. S14_Blend: steered recommender with the graph-feature table (setting chosen on 2018, checked once on 2019)."),
     ("Formats", "Percentages are stored as fractions (0.403 displays as 40.3%). MIPS in points (0–100). Distances in miles."),
     ("MRR", "Mean reciprocal rank appears only in the run register as a training/selection sanity value; no result is judged on it."),
 ]
@@ -388,6 +389,80 @@ if E:
     cols_e = table(ws, d, 5, name="topk_hybrids", fmts={"MIPS gain (list)": "0.00", "mean travel (list)": "0.00"} | {c: "0.000" for c in d.columns if "ci_" in c})
     REG[("S12e", "rng")] = {k: f"'S12e_TopK_Hybrids'!${cols_e[k][2]}$6:${cols_e[k][2]}${5 + len(d)}" for k in ("K", "year", "arm", "Δload vs GNN ci_hi", "Δfit vs GNN ci_lo", "Δfit vs GNN ci_hi", "pairing")}
 
+# =============================================================== Step 13 / post hoc / Step 14 ===========================================================
+V13, T13 = J(f"{A}/step13/eval/validation_step13_verdicts.json"), J(f"{A}/step13/eval/test_step13_verdicts.json")
+rows = []
+for yr, X in (("2018", V13), ("2019", T13)):
+    for u, x in X["units"].items():
+        for c_ in x["components"]:
+            rows.append({"year": yr, "claim": u, "component": c_["name"], "point": c_["point"], "ci_lo": c_["ci95"][0], "ci_hi": c_["ci95"][1], "p_one_sided": c_["p_one_sided"],
+                         **{f"seed {k}": v for k, v in c_["per_seed"].items()}, "undefined_share": c_["undefined_share"]})
+d13 = pd.DataFrame(rows)
+ws = sheet("S13_GraphValue", "What the graph adds: pre-registered claims and components (2018 decides; 2019 once)",
+           "Plan: STEP13_GRAPH_VALUE_PLAN.md (frozen 2026-10-21) + STEP13_AMENDMENTS.md (A1–A3). Points are differences of proportions (0.026 = 2.6 points), graph-side minus comparator; "
+           "two-level paired bootstrap (seeds and PCPs), 2,000 draws. A claim's p = maximum over its components; Holm across the 5 claims (2018).",
+           [f"{A}/step13/eval/validation_step13_verdicts.json", f"{A}/step13/eval/test_step13_verdicts.json"])
+cols13 = table(ws, d13, 5, name="s13_components", fmts={c: "0.000" for c in d13.columns if c not in ("year", "claim", "component")})
+R13 = {k: f"'S13_GraphValue'!${cols13[k][2]}$6:${cols13[k][2]}${5 + len(d13)}" for k in ("year", "claim", "component", "point", "ci_lo", "ci_hi", "p_one_sided")}
+r0u = 8 + len(d13)
+du = pd.DataFrame([{"claim (2018)": u, "verdict": x["verdict"], "p_unit (file)": x["p_unit"], "p_holm (file)": x["p_holm"], "slice referrals": x.get("slice_n")} for u, x in V13["units"].items()])
+colsu = table(ws, du, r0u, name="s13_units", fmts={"p_unit (file)": "0.000", "p_holm (file)": "0.000", "slice referrals": "0"})
+cu = colsu["claim (2018)"][2]; pu = colsu["p_unit (file)"][2]
+checkcol(ws, colsu, len(du), lambda r: f'=_xlfn.MAXIFS({R13["p_one_sided"]},{R13["year"]},"2018",{R13["claim"]},{cu}{r})', "p_unit recomputed (max of components)", L(len(du.columns) + 1), "0.000")
+checkcol(ws, colsu, len(du), lambda r: f"=ABS({L(len(du.columns) + 1)}{r}-{pu}{r})<1e-9", "matches file?", L(len(du.columns) + 2))
+REG[("S13", "verdicts")] = f"'S13_GraphValue'!${colsu['verdict'][2]}${r0u + 1}:${colsu['verdict'][2]}${r0u + len(du)}"
+def comp_cell(yr, unit, name, col):
+    i = d13.index[(d13.year == yr) & (d13.claim == unit) & (d13.component == name)][0]
+    return f"'S13_GraphValue'!${cols13[col][2]}${6 + i}"
+REG[("S13", "cc")] = comp_cell
+
+PH = {yr: J(f"{A}/step13/posthoc_matched_load_{sp}.json") for yr, sp in (("2018", "validation"), ("2019", "test"))}
+rows = []
+for yr, X in PH.items():
+    for r in X["pairs"]:
+        L_, N_ = r["matched_top_pick_load_A_minus_B"], r["matched_newness_A_minus_B"]
+        rows.append({"year": yr, "A": r["A"], "B": r["B"], "what": r["what"], "fit A": r["fit_A"], "fit B": r["fit_B"], "Δload matched": L_["point"], "Δload ci_lo": L_["ci95"][0],
+                     "Δload ci_hi": L_["ci95"][1], "Δnew matched": N_["point"], "Δnew ci_lo": N_["ci95"][0], "Δnew ci_hi": N_["ci95"][1]})
+dph = pd.DataFrame(rows)
+ws = sheet("S13_MatchedFit", "Post hoc: top-pick load and newness at matched fit (descriptive)",
+           "Run after the 2019 pass on the STEP13 score dumps; both years already seen, so descriptive, not a test. The more accurate cell is mixed with the exact random scorer down to the other's fit "
+           "(STEP12a §2.E); cells seed-averaged; PCP-cluster bootstrap, 2,000 draws. A − B; negative load = A spreads load more.",
+           [f"{A}/step13/posthoc_matched_load_validation.json", f"{A}/step13/posthoc_matched_load_test.json"])
+colsph = table(ws, dph, 5, name="s13_matched", fmts={c: "0.000" for c in dph.columns if c not in ("year", "A", "B", "what")})
+REG[("PH", "cell")] = lambda yr, a, b, col: f"'S13_MatchedFit'!${colsph[col][2]}${6 + dph.index[(dph.year == yr) & (dph.A == a) & (dph.B == b)][0]}"
+
+C14, R14 = J(f"{A}/step14/choice_2018.json"), J(f"{A}/step14/results_2019.json")
+rows = []
+for f_, c_ in C14["choice"].items():
+    base = {"family": f_, "proposed on 2018": f_ == C14["proposed"]}
+    if c_.get("cannot_reach_floors"): rows.append({**base, "a_new": None, "b_busy": None, "year": "2018", "pairing": "cannot reach the floors"}); continue
+    for yr, src in (("2018", c_["lenses_per_pairing"]), ("2019", R14["families"][f_]["lenses_per_pairing"])):
+        for pk, lv in src.items():
+            rows.append({**base, "a_new": c_["a_new"], "b_busy": c_["b_busy"], "year": yr, "pairing": f"s{pk}", **{k: lv[k] for k in ("fit", "busy1", "new5", "gain5")}})
+d14 = pd.DataFrame(rows)
+ws = sheet("S14_Blend", "Steered recommender with the graph-feature table: 2018 choice, 2019 check (per seed pairing)",
+           "Plan: STEP14_GRAPH_FEATURE_BLEND_PLAN.md (frozen 2026-10-23). Families: G graph, T table, F graph-feature table (Flat-RF), B_GT graph+table (Step 12c), B_GF graph+F, B_GTF graph+table+F. "
+           "Setting per family chosen on 2018: fit ≥ 0.45 and new ≥ 0.35 in all pairings, lowest top-pick load (busy1). Disclosed: motivated by STEP13 results that had seen 2019.",
+           [f"{A}/step14/choice_2018.json", f"{A}/step14/results_2019.json"])
+cols14 = table(ws, d14, 5, name="s14_blend", fmts={"fit": "0.0%", "busy1": "0.0%", "new5": "0.0%", "gain5": "0.00"})
+R14r = {k: f"'S14_Blend'!${cols14[k][2]}$6:${cols14[k][2]}${5 + len(d14)}" for k in ("family", "year", "pairing", "fit", "busy1", "new5")}
+r0c = 8 + len(d14)
+dcmp = pd.DataFrame([{"pairing": f"s{k}"} for k in (42, 1, 7)])
+colsc = table(ws, dcmp, r0c, name="s14_check")
+pc_ = colsc["pairing"][2]
+def sumif(fam, col, r): return f'SUMIFS({R14r[col]},{R14r["family"]},"{fam}",{R14r["year"]},"2019",{R14r["pairing"]},{pc_}{r})'
+checkcol(ws, colsc, 3, lambda r: f"={sumif('B_GT', 'busy1', r)}-{sumif('B_GTF', 'busy1', r)}", "2019 load: B_GT − B_GTF", "B", "0.000")
+checkcol(ws, colsc, 3, lambda r: f"={sumif('B_GTF', 'fit', r)}-{sumif('B_GT', 'fit', r)}", "2019 fit: B_GTF − B_GT", "C", "0.000")
+checkcol(ws, colsc, 3, lambda r: f"={sumif('B_GTF', 'new5', r)}-{sumif('B_GT', 'new5', r)}", "2019 new: B_GTF − B_GT", "D", "0.000")
+checkcol(ws, colsc, 3, lambda r: f"=AND(B{r}>0,C{r}>=-0.01,D{r}>=-0.01)", "pre-stated test met?", "E")
+REG[("S14", "test_rng")] = f"'S14_Blend'!$E${r0c + 1}:$E${r0c + 3}"
+bt = R14["comparison_with_B_GT"]["proposed_minus_B_GT_paired_bootstrap"]
+r0b = r0c + 6
+dbt = pd.DataFrame([{"lens (B_GTF − B_GT, 2019, paired PCP bootstrap)": k, "point": v["point"], "ci_lo": v["ci95"][0], "ci_hi": v["ci95"][1]} for k, v in bt.items()])
+colsb = table(ws, dbt, r0b, name="s14_boot", fmts={"point": "0.000", "ci_lo": "0.000", "ci_hi": "0.000"})
+REG[("S14", "load_ci_hi")] = f"'S14_Blend'!${colsb['ci_hi'][2]}${r0b + 1 + list(bt).index('busy1')}"
+REG[("S14", "load_pt")] = f"'S14_Blend'!${colsb['point'][2]}${r0b + 1 + list(bt).index('busy1')}"
+
 # =============================================================== Columns dictionary ===========================================================
 COLS_DOC = [("r5 / fit", "Share of referrals with the chosen specialist in the top 5 (top K)."), ("r10", "Same for the top 10."), ("rr", "Mean reciprocal rank of the chosen specialist (sanity only)."),
             ("gain5", "Mean MIPS of the top 5 minus MIPS of the chosen specialist (points)."), ("gain5_cons", "Cautious bound: unscored/ambiguous MIPS counted against the list."), ("gain1", "MIPS of the top pick minus the chosen."),
@@ -440,6 +515,19 @@ if ("S12e", "rng") in REG:
             cnt = f'COUNTIFS({R_["K"]},{K},{R_["year"]},"{yr}",{R_["arm"]},"Steered blend")'
             low = f'COUNTIFS({R_["K"]},{K},{R_["year"]},"{yr}",{R_["arm"]},"Steered blend",{R_["Δload vs GNN ci_hi"]},"<0")'
             CL.append((f"Top {K}, {yr}: steered blend has lower top-pick load than the graph model in every pairing (CI below 0)", "STEP12e (new)", f"={low}", f"=AND({cnt}=3,{low}=3)"))
+cc, ph = REG[("S13", "cc")], REG[("PH", "cell")]
+CL += [
+    ("No Step 13 claim is supported on 2018 (pre-registered, Holm over 5)", "Story deck v2 (23 Oct)", f'=COUNTIF({REG[("S13", "verdicts")]},"supported")', f'=COUNTIF({REG[("S13", "verdicts")]},"supported")=0'),
+    ("Message passing recovers less than half of what history columns give (H1a joint half-gap below 0, 2018)", "Story deck v2 (23 Oct)", f"={cc('2018', 'H1a', 'joint half-gap', 'point')}", f"={cc('2018', 'H1a', 'joint half-gap', 'ci_hi')}<0"),
+    ("Fixed 2-hop summaries in LightGBM beat the GNN without history, 2018 and 2019 (CI below 0)", "Story deck v2 (23 Oct)", f"={cc('2018', 'H1b', 'GNN-nohist − flat_rf', 'point')}",
+     f"=AND({cc('2018', 'H1b', 'GNN-nohist − flat_rf', 'ci_hi')}<0,{cc('2019', 'H1b', 'GNN-nohist − flat_rf', 'ci_hi')}<0)"),
+    ("An MLP on the same summaries ties the GNN without history (2018 CI includes 0)", "Story deck v2 (23 Oct)", f"={cc('2018', 'H1b', 'GNN-nohist − mlp_rf', 'point')}",
+     f"=AND({cc('2018', 'H1b', 'GNN-nohist − mlp_rf', 'ci_lo')}<0,{cc('2018', 'H1b', 'GNN-nohist − mlp_rf', 'ci_hi')}>0)"),
+    ("Post hoc: graph summaries cut a table's top-pick load at matched fit, 2018 and 2019 (CI below 0)", "Story deck v2 (23 Oct)", f"={ph('2019', 'flat_rf', 'table', 'Δload matched')}",
+     f"=AND({ph('2018', 'flat_rf', 'table', 'Δload ci_hi')}<0,{ph('2019', 'flat_rf', 'table', 'Δload ci_hi')}<0)"),
+    ("Three-way blend meets the pre-stated 2019 test against the Step 12c blend in all 3 pairings (recomputed)", "Story deck v2 (23 Oct)", f"=COUNTIF({REG[('S14', 'test_rng')]},TRUE)", f"=COUNTIF({REG[('S14', 'test_rng')]},TRUE)=3"),
+    ("Three-way blend: lower 2019 top-pick load than the Step 12c blend (paired CI below 0)", "Story deck v2 (23 Oct)", f"={REG[('S14', 'load_pt')]}", f"={REG[('S14', 'load_ci_hi')]}<0"),
+]
 d = pd.DataFrame([{"#": i + 1, "claim": a, "where": b} for i, (a, b, _, _) in enumerate(CL)])
 cols = table(ws, d, 5, name="claims"); ws.column_dimensions["B"].width = 95
 ws["D5"] = "value from evidence"; ws["E5"] = "check"

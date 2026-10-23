@@ -1,7 +1,8 @@
 """Compose presentation/template_story.html: the week-3 template's style and chart helpers (already checked) + the story-deck slides.
 Reused unchanged from template_w3.html: forest(), frontierChart(), renderGroups, renderTopK, renderMech, renderHyb, renderComp,
 renderFrontier, renderHeavy, renderBC. New: setting, lenses, imitation, quality weight, graph vs table, 2019 + 10/15 names, summary,
-appendix (network turnover, masking). Run from anywhere: python3 scripts/deliverables/presentation/compose_story_template.py"""
+appendix (network turnover, masking); Step 13 graph-value tests, post hoc matched fit, Step 14 three-way blend (23 Oct).
+Run from anywhere: python3 scripts/deliverables/presentation/compose_story_template.py"""
 import os, sys, pathlib  # bootstrap: make referral_gnn importable from any scripts/ subfolder (or `pip install -e .`)
 sys.path.insert(0, str(next(p for p in pathlib.Path(__file__).resolve().parents if (p / "referral_gnn" / "paths.py").is_file())))
 from referral_gnn.paths import workspace, script_path, code_file  # noqa: E402,F401
@@ -198,15 +199,46 @@ SLIDES = r'''
 </section>
 
 <!-- 16 -->
+<section class="slide" data-accent="graph">
+  <span class="tag">6 · What the graph adds: pre-registered tests</span>
+  <h1>Learned message passing does not beat the same information as fixed summaries</h1>
+  <p class="sub">Each row is one pre-registered comparison (fit, or insurer-compatible new picks at matched newness), averaged over 3 seed pairings, with a two-level bootstrap 95% interval (seeds and PCPs). Right of zero = the graph model is better.</p>
+  <div class="controls" id="s13-year"></div>
+  <div class="row"><div class="col"><div class="chart" id="s13-chart"></div><div class="lg" id="s13-legend"></div></div>
+    <div class="col" style="flex:0 0 400px;gap:10px"><table class="t" id="s13-units" style="font-size:13.5px"></table><div class="panel" style="--tint:var(--graph-t)"><p class="mini" id="s13-read"></p></div></div></div>
+  <div class="src" id="s13-src"></div>
+</section>
+
+<!-- 17 -->
+<section class="slide" data-accent="graph">
+  <span class="tag">6 · What the graph adds: information, not propagation</span>
+  <h1>Graph summaries cut a table’s load at equal fit, without losing new connections</h1>
+  <p class="sub">Top-pick load and newness compared at matched fit (the more accurate model is mixed with random picks down to the other’s fit); 3 seed pairings; PCP-cluster 95% intervals. Post hoc and descriptive: both years had been seen.</p>
+  <div class="row"><div class="col"><table class="t" id="ph-table" style="font-size:14px"></table></div>
+    <div class="col" style="flex:0 0 380px;gap:10px"><div class="panel" style="--tint:var(--graph-t)"><p class="mini" id="ph-read"></p></div><div class="panel" style="--tint:#fdf3e1"><p class="mini" id="ph-cav"></p></div></div></div>
+  <div class="src" id="ph-src"></div>
+</section>
+
+<!-- 18 -->
+<section class="slide" data-accent="blend">
+  <span class="tag">7 · Combining, with graph information</span>
+  <h1>Adding the graph-feature table to the steered blend lowers load further</h1>
+  <p class="sub">Settings chosen on 2018 by the Step 12c rule (fit ≥ 45% and newness ≥ 35% in all 3 pairings, lowest top-pick load), then checked once on 2019. Top 5; 30% quality weight.</p>
+  <div class="row"><div class="col"><table class="t" id="s14-table" style="font-size:14px"></table><p class="note" style="margin-top:8px" id="s14-note"></p></div>
+    <div class="col" style="flex:0 0 360px;gap:10px"><div class="panel" style="--tint:var(--blend-t)"><p class="mini" id="s14-read"></p></div><div class="panel" style="--tint:#fdf3e1"><p class="mini" id="s14-cav"></p></div></div></div>
+  <div class="src" id="s14-src"></div>
+</section>
+
+<!-- 19 -->
 <section class="slide" data-accent="mix">
   <span class="tag">Summary</span>
   <h1>What we learned, and what comes next</h1>
-  <p class="sub">The steered blend is the best combination we found; the open questions decide the next step</p>
+  <p class="sub">The best recommender combines a neural ranker, a table and graph information; the open questions decide the next step</p>
   <div class="row"><div class="col" style="flex:0 0 560px;gap:10px" id="take"></div>
     <div class="col" style="gap:0" id="asks"></div></div>
 </section>
 
-<!-- 17 -->
+<!-- 20 -->
 <section class="slide appx" data-accent="mix">
   <span class="tag">Appendix A · Network over time</span>
   <h1>The referral network turns over fast; concentration does not</h1>
@@ -216,7 +248,7 @@ SLIDES = r'''
   <div class="src">Source: runs/analysis/step11_4a/summary.json (scripts/analysis/step11/step11_network_evolution.py)</div>
 </section>
 
-<!-- 18 -->
+<!-- 21 -->
 <section class="slide appx" data-accent="mix">
   <span class="tag">Appendix B · Gender and race</span>
   <h1>Masking gender and race inside the graph model</h1>
@@ -320,17 +352,60 @@ function renderY19(){
   const fd=["10","15"].map(K=>E[K]["2019"].map(p=>p.fixed.GNN.fit-p.fixed["Steered blend"].fit));
   html("y19-cav",`<b>Caveat.</b> As with 5 names, fit is level with the table and a little below the graph model on 2019 (${rng(fd[0],p1)} points with 10 names, ${rng(fd[1],p1)} with 15).`);
 }
-/* ---------- slide 16: summary ---------- */
+/* ---------- slide 16: STEP13 pre-registered graph-value tests ---------- */
+const mag=v=>(100*Math.abs(v)).toFixed(1);
+const S13_HEAD={"H1a":"H1a · recovers history? (fit)","H1b":"H1b · learned vs fixed (fit)","H3":"H3 · insurer-compatible new picks"};
+const S13_SHORT={"H1a":["Graph − no-MP (no history)","GNN − no-MP, no history","Joint half-gap"],"H1b":["− Flat-RF (LightGBM)","− MLP on summaries","− pure table","− table + summaries"],"H3":["− no-MP (no history)","− Flat-RF","− MLP on summaries","− table + summaries"]};
+function renderS13(){
+  if(!state.s13y)state.s13y="2018";toggle("s13-year","s13y",[["2018","2018 (decides)"],["2019","2019 (once)"]]);
+  const S=D.s13, key=state.s13y==="2018"?"c2018":"c2019", rows=[];
+  ["H1a","H1b","H3"].forEach(u=>S.units[u][key].forEach((c,i)=>rows.push({head:S13_HEAD[u],label:S13_SHORT[u][i],est:c.point,ci:c.ci})));
+  forest("s13-chart",rows,{fmt:v=>pt(v),axis:"Graph model − comparator (points; right = graph model better)",labelW:330,colour:r=>r.ci[0]>0?C.graph:r.ci[1]<0?C.table:C.grey});
+  html("s13-legend",`<span><i style="background:${C.graph}"></i>interval above 0</span><span><i style="background:${C.table}"></i>interval below 0 (comparator better)</span><span><i style="background:${C.grey}"></i>includes 0</span>`);
+  const V={"supported":"✓ supported","not supported":"✗ not supported","inconclusive":"? inconclusive"};
+  const NM={"H1a":"Message passing recovers what history columns give","H1b":"Learned propagation beats fixed summaries","H2_low_history":"Graph helps most for low-history PCPs","H2_thin_network":"… and for thin-network PCPs","H3":"More insurer-compatible new picks"};
+  html("s13-units",`<tr><th>Claim (2018 decides)</th><th style="white-space:nowrap">Verdict</th><th style="white-space:nowrap">Holm p</th></tr>`+Object.keys(NM).map(u=>`<tr><td>${NM[u]}</td><td style="white-space:nowrap">${V[S.units[u].verdict]||S.units[u].verdict}</td><td>${S.units[u].p_holm.toFixed(2)}</td></tr>`).join(""));
+  const h1=S.units.H1a[key], b=S.units.H1b[key], yr=state.s13y;
+  html("s13-read",`<b>Reading (${yr}).</b> History columns are worth ${mag(h1[0].point)} points of fit; message passing recovers ${mag(h1[1].point)} of them. Fixed two-hop summaries in LightGBM beat the graph model by ${mag(b[0].point)}; an MLP on them ties it. The gap is tree vs neural, not graph vs no graph. ${yr==="2018"?"2019 shows the same pattern.":"Verdicts are decided on 2018; 2019 shows the same pattern."} Thin-history claims (H2): no edge on 2018, a non-significant hint on 2019.`);
+  html("s13-src",`Source: ${S.src}. Holm over 5 claims; a claim needs every component above 0 and every seed agreeing.`);
+}
+/* ---------- slide 17: post hoc matched fit ---------- */
+const PH_ROWS=[["flat_rf","table","Table + graph summaries vs pure table"],["info_nohist","table","Table + summaries + counts vs pure table"],["flat_rf","graph","Table + graph summaries vs full graph model"],["graph","table","Full graph model vs pure table (reference)"],["gnn_nohist","mlp_rf","Learned propagation vs MLP on summaries (no history)"]];
+function renderPH(){
+  const P=D.s13ph, g=(yr,a,b)=>P[yr].find(r=>r.A===a&&r.B===b), ci=x=>`<span style="color:#7a7a85;font-size:11.5px;white-space:nowrap"> [${pt(x.ci95[0])}, ${pt(x.ci95[1])}]</span>`;
+  html("ph-table",`<tr><th>Comparison (A − B)</th><th>Load 2018</th><th>Load 2019</th><th>Newness 2018</th><th>Newness 2019</th></tr>`+PH_ROWS.map(([a,b,l])=>{const r8=g("2018",a,b),r9=g("2019",a,b);
+    return `<tr><td>${l}</td><td><b>${pt(r8.matched_top_pick_load_A_minus_B.point)}</b>${ci(r8.matched_top_pick_load_A_minus_B)}</td><td><b>${pt(r9.matched_top_pick_load_A_minus_B.point)}</b>${ci(r9.matched_top_pick_load_A_minus_B)}</td><td>${pt(r8.matched_newness_A_minus_B.point)}</td><td>${pt(r9.matched_newness_A_minus_B.point)}</td></tr>`}).join(""));
+  const f=g("2018","flat_rf","table"), f9=g("2019","flat_rf","table"), fg=g("2019","flat_rf","graph");
+  html("ph-read",`<b>Reading.</b> Giving the table fixed summaries of each specialist’s and PCP’s past cases cuts its top-pick load by ${mag(f.matched_top_pick_load_A_minus_B.point)} (2018) and ${mag(f9.matched_top_pick_load_A_minus_B.point)} points (2019) at equal fit, with newness unchanged. Against the full graph model it has ${mag(fg.matched_top_pick_load_A_minus_B.point)} points lower load and ${mag(fg.matched_newness_A_minus_B.point)} points more new connections (2019). The network’s information helps; learning it by message passing is not what helps.`);
+  html("ph-cav",`<b>Caveat.</b> Chosen after the pre-registered tests, on years already seen: a fair description, not a test. Native fit of the table with summaries is ${mag(f.fit_A-f.fit_B)} (2018) and ${mag(f9.fit_A-f9.fit_B)} points (2019) below the pure table; matching corrects for it.`);
+  html("ph-src",`Source: ${P.src} (scripts/analysis/step13/step13_matched_load.py; STEP12a random-mixture matching)`);
+}
+/* ---------- slide 18: STEP14 three-way blend ---------- */
+const S14_NM={"B_GTF":"Graph + table + graph-feature table","B_GT":"Graph + table (Step 12c blend)","B_GF":"Graph + graph-feature table","T":"Table alone","G":"Graph model alone","F":"Graph-feature table alone"};
+function renderS14(){
+  const S=D.s14, fams=["B_GTF","B_GT","B_GF","T","G","F"];
+  html("s14-table",`<tr><th>Recommender (steered)</th><th>a / b (2018)</th><th>Top-pick load</th><th>Newness</th><th>Fit</th><th>MIPS gain</th></tr>`+fams.map(f=>{const c=S.choice[f],y=S.y2019[f];
+    if(!c||c.cannot_reach_floors)return `<tr style="color:#8a8984"><td>${S14_NM[f]}</td><td colspan="5">cannot reach fit ≥ 45% and newness ≥ 35% on 2018</td></tr>`;
+    const L=y.lenses_mean, b=f===S.proposed?"font-weight:700;background:#e5f6ef":"";
+    return `<tr style="${b}"><td>${S14_NM[f]}${f===S.proposed?" ★":""}</td><td>${c.a_new} / ${c.b_busy}</td><td>${pct(L.busy1)}</td><td>${pct(L.new5)}</td><td>${pct(L.fit)}</td><td>${f1(L.gain5)}</td></tr>`}).join(""));
+  html("s14-note",`2019, averaged over 3 seed pairings. ★ = chosen on 2018 before 2019 was looked at. a = push toward specialists new to the PCP, b = push away from the busiest 10%.`);
+  const d=S.cmp.proposed_minus_B_GT_paired_bootstrap, ci=x=>`[${pt(x.ci95[0])}, ${pt(x.ci95[1])}]`, cim=x=>`[${f2(x.ci95[0])}, ${f2(x.ci95[1])}]`;
+  html("s14-read",`<b>Reading.</b> The three-way blend meets the pre-stated test against the Step 12c blend in all three seed pairings: top-pick load ${pt(d.busy1.point)} points ${ci(d.busy1)}, fit ${pt(d.fit.point)} ${ci(d.fit)}, MIPS ${f2(d.gain5.point)} ${cim(d.gain5)}, newness ${pt(d.new5.point)} ${ci(d.new5)}. The graph model alone or the graph-feature table alone cannot reach the floors; combined, they set the best trade-off found.`);
+  html("s14-cav",`<b>Caveat.</b> The idea came from Step 13 results that had seen 2019, so 2019 checks the settings and recommender chosen on 2018, not whether to try the graph-feature table. The gain is modest (about 2 points of top-pick load).`);
+  html("s14-src",`Source: ${S.src} (scripts/analysis/step14/step14_blend.py)`);
+}
+/* ---------- slide 19: summary ---------- */
 function renderTake(){
   const b19=D.blend.y2019, Y=D.s11.years;
   const tk=[["var(--load)","Imitation reproduces practice.","A recommender trained on past referrals mostly re-ranks the PCP’s usual specialists and puts more top picks on the busiest ones than PCPs do."],
     ["var(--q)","Quality needs a yardstick.",`A 30% MIPS weight gives ${f1(D.s10.tradeoff["2019"].model["blend0.3"].gain5)} MIPS points on 2019 at about the PCPs’ own fit.`],
     ["var(--table)","Graph vs table.",`Similar fit and quality; the graph model has lower load (${pt(Y["2019"].load.diff)} points on 2019), the table more new connections. Not because of message passing or PCP history.`],
-    ["var(--blend)","Combine and steer.",`The two make different mistakes. A 50/50 blend steered toward new, less busy specialists: 2019 top-pick load ${rng(b19.map(p=>p["Steered blend"].busy1),p0)} (graph ${rng(b19.map(p=>p.GNN.busy1),p0)}, table ${rng(b19.map(p=>p.Table.busy1),p0)}), the table’s newness, higher MIPS, fit ${rng(b19.map(p=>p.GNN.fit-p["Steered blend"].fit),p1)} points below the graph model. Holds with 10–15 names. Trained-together hybrids do not beat it.`]];
+    ["var(--graph)","What the graph adds.",`Pre-registered against matched controls: learned message passing does not beat the same neighbourhood information as fixed summaries (both years). The information itself helps: as summaries it cuts a table’s top-pick load by ${mag(D.s13ph["2019"].find(r=>r.A==="flat_rf"&&r.B==="table").matched_top_pick_load_A_minus_B.point)} points at equal fit (2019, post hoc).`],
+    ["var(--blend)","Combine and steer.",`The models make different mistakes. Steered toward new, less busy specialists, a blend of graph model, table and graph-feature table reaches 2019 top-pick load ${pct(D.s14.y2019.B_GTF.lenses_mean.busy1)} (Step 12c blend ${pct(D.s14.y2019.B_GT.lenses_mean.busy1)}; graph alone ${rng(b19.map(p=>p.GNN.busy1),p0)}, table ${rng(b19.map(p=>p.Table.busy1),p0)}) at the table’s newness and higher MIPS. Trained-together hybrids do not beat it.`]];
   html("take",tk.map(([c,b,s])=>`<div class="panel" style="--tint:#f6f6f4;border-left:6px solid ${c};padding:12px 18px"><p class="mini"><b>${b}</b> ${s}</p></div>`).join(""));
   const asks=[["var(--blend)","Train for several goals at once","Steering is a weighted sum applied after the model. Multi-objective training (e.g. Tchebycheff or ε-constraint objectives) could build fit, load and newness into the model itself."],
     ["var(--load)","Who sets the steering weights?","How much fit to trade for lower load and new connections is a policy choice."],
-    ["var(--table)","Steer the flattened-graph LightGBM","The closest simple hybrid; not yet on the steering frontier."],
+    ["var(--graph)","Where could message passing still help?","New PCPs or specialists without history, several networks, larger graphs. 2019 hinted at an edge for thin-history PCPs; it needs a fresh pre-registered test."],
     ["var(--fit)","Open data question","Confirm the year of the specialist volume figures (likely ~2018, overlapping the evaluation year)."]];
   html("asks",asks.map(([c,q,s],i)=>`<div class="q" style="--qc:${c};margin:0 0 9px"><span class="n">${i+1}</span><div><b>${q}${q.endsWith("?")?"":"."}</b> <span style="font-size:15px;color:#44464f">${s}</span></div></div>`).join(""));
 }
@@ -347,7 +422,7 @@ function renderMask(){
     ["gender","race"].map(k=>`<tr><td>${k}</td><td>${M[k].unmasked.toFixed(2)}</td><td><b>${M[k].masked.toFixed(2)}</b></td><td>${M[k].inputs.toFixed(2)}</td></tr>`).join(""));
   html("mask-read",`<b>Reading.</b> Without masking, gender and race are almost perfectly readable from the model’s embeddings (AUC ${M.gender.unmasked.toFixed(2)} / ${M.race.unmasked.toFixed(2)}). With masking they are barely readable (${M.gender.masked.toFixed(2)} / ${M.race.masked.toFixed(2)}) — close to what the remaining inputs (diagnoses, insurer, location) reveal on their own (${M.gender.inputs.toFixed(2)} / ${M.race.inputs.toFixed(2)}). The graph does not amplify them. Recommendations with and without masking were indistinguishable on every lens (Steps 9–10).`);
 }
-function renderAll(){const f=[renderData,renderLenses,renderImit,renderQW,renderGvT,renderGroups,renderTopK,renderMech,renderHyb,renderComp,renderFrontier,renderY19,renderHeavy,renderBC,renderTake,renderNet,renderMask];f.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+function renderAll(){const f=[renderData,renderLenses,renderImit,renderQW,renderGvT,renderGroups,renderTopK,renderMech,renderHyb,renderComp,renderFrontier,renderY19,renderHeavy,renderBC,renderS13,renderPH,renderS14,renderTake,renderNet,renderMask];f.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
 fit();go((parseInt(location.hash.slice(1))||1)-1);
 </script>
 </body>

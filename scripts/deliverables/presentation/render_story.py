@@ -1,5 +1,5 @@
 """Build presentation/referral_graph_story.html: story template + the first deck's base style + aggregate data. Self-contained.
-Run from anywhere:  python3 scripts/deliverables/presentation/render_story.py ["20 October 2026"]
+Run from anywhere:  python3 scripts/deliverables/presentation/render_story.py ["20 October 2026"] [output.html]
 """
 import os, sys, pathlib  # bootstrap: make referral_gnn importable from any scripts/ subfolder (or `pip install -e .`)
 sys.path.insert(0, str(next(p for p in pathlib.Path(__file__).resolve().parents if (p / "referral_gnn" / "paths.py").is_file())))
@@ -13,4 +13,5 @@ base = re.search(r"<style>(.*?)</style>", open(TPL / "template.html").read(), re
 t = open(TPL / "template_story.html").read(); d = open(f"{OUTD}/data_story.json").read()
 date = sys.argv[1] if len(sys.argv) > 1 else "20 October 2026"
 out = t.replace("/*BASE_STYLE*/", base).replace("/*DATA*/null", d).replace("/*DATE*/", date)
-open(f"{OUTD}/referral_graph_story.html", "w").write(out); print("wrote referral_graph_story.html", len(out) // 1024, "KB")
+name = sys.argv[2] if len(sys.argv) > 2 else "referral_graph_story.html"      # later versions go to a new file (never overwrite)
+open(f"{OUTD}/{name}", "w").write(out); print("wrote", name, len(out) // 1024, "KB")
